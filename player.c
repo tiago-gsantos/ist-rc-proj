@@ -9,12 +9,14 @@
 #include <errno.h>
 extern int errno;
 
+#include "parser_player.h"
+
 #define GROUP_NUM 91
 #define PORT_STRLEN 6
 
 
 
-void getMyIP(char *ip_addr){
+void get_my_IP(char *ip_addr){
     struct addrinfo hints,*res;
     struct in_addr *addr;
     int errcode;
@@ -47,25 +49,90 @@ void getMyIP(char *ip_addr){
 }
 
 
+int play(char *GSIP, char* GSport, int fd_udp) {
+    while(1) {
+        char buffer[256];
+        char command[12]; 
+        char request[256];
+
+        if(!fgets(buffer, sizeof(buffer), stdin)) {
+            fprintf(stderr, "ERROR!\n");
+            return 1;
+        }
+
+        if(sscanf(buffer, "%11s", command) != 1) {
+            fprintf(stderr, "Please type a command!\n");
+            continue;
+        };
+        
+        // Execute command
+        if(strcmp(command, "start") == 0) {
+            if(parse_start(buffer, request) == 0)
+                printf("%s", request);
+            //cmd_start();
+        } 
+        else if(strcmp(command, "try") == 0) {
+            if(parse_try(buffer, request) == 0) // falta args
+                printf("%s", request);
+            //cmd_try();
+        }
+        else if(strcmp(command, "show_trials") == 0 || strcmp(command, "st") == 0) {
+            if(parse_st(buffer, request) == 0) // falta args
+                printf("%s", request);
+            //cmd_st();
+        }
+        else if(strcmp(command, "scoreboard") == 0 || strcmp(command, "sb") == 0) {
+            if(parse_sb(buffer, request) == 0)
+                printf("%s", request);
+            //cmd_sb();
+        }
+        else if(strcmp(command, "quit")  == 0) {
+            if(parse_quit_exit(buffer, request) == 0)
+                printf("%s", request);
+            //cmd_quit();
+        }
+        else if(strcmp(command, "exit")  == 0) {
+            if(parse_quit_exit(buffer, request) == 1)
+                printf("%s", request);
+            //cmd_exit();
+        }
+        else if(strcmp(command, "debug")  == 0) {
+            if(parse_debug(buffer, request) == 0)
+                printf("%s", request);
+            //cmd_debug();
+        }
+        else {
+            fprintf(stderr, "Invalid command!\n");
+        }
+    }
+
+    return 0;
+}
+
+
+
+
+
+
 int main(int argc, char *argv[]) {
     char GSIP[INET_ADDRSTRLEN];
     char *GSport;
 
-    char defaultPort[PORT_STRLEN];
-    sprintf(defaultPort, "%d", 58000 + GROUP_NUM);
+    char default_port[PORT_STRLEN];
+    sprintf(default_port, "%d", 58000 + GROUP_NUM);
     
     switch (argc) {
         case 1:
-            getMyIP(GSIP);
-            GSport = defaultPort;
+            get_my_IP(GSIP);
+            GSport = default_port;
             break;
         case 3:
             if(strcmp(argv[1], "-n") == 0) {
                 strcpy(GSIP, argv[2]);
-                GSport = defaultPort;
+                GSport = default_port;
             }
             else if(strcmp(argv[1], "-p") == 0){
-                getMyIP(GSIP);
+                get_my_IP(GSIP);
                 GSport = argv[2];
             }
             else {
@@ -94,5 +161,9 @@ int main(int argc, char *argv[]) {
 
     printf("IP: %s\nPort: %s\n", GSIP, GSport);
 
-    return 0;
+    int fd_udp = socket(AF_INET, SOCK_DGRAM, 0); //UDP socket
+    if(fd_udp == -1) exit(1); /* error */
+
+    int response = play(GSIP, GSport, fd_udp);
+    return response;
 }

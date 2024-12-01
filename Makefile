@@ -1,17 +1,18 @@
 CC = gcc
 CFLAGS = -Wall
 TARGET = player
-SRCS = player.c
-
+SRCS = player.c parser_player.c
+OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)
 
-$(TARGET): $(SRCS)
-	$(CC) $(CFLAGS) $(SRCS) -o $(TARGET)
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET)
 
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(TARGET)
-
+	rm -f $(TARGET) $(OBJS)
 
 .PHONY: all clean
