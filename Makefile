@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall
 TARGET = player
-SRCS = player.c parser_player.c
+SRCS = player.c parser_player.c commands.c
 OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)
