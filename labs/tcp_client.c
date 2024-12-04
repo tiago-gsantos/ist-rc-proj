@@ -45,7 +45,7 @@ int main(void)
     nread=read(fd,ptr,nleft);
     
     if(nread==-1) exit(1); /*error*/
-    else if(nread==0)break;//closed by peer
+    else if(nread==0)break; //closed by peer
     
     nleft-=nread;
     ptr+=nread;

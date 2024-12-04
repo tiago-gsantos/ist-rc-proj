@@ -22,7 +22,7 @@ int main(void)
   hints.ai_socktype=SOCK_DGRAM;//UDP socket
   hints.ai_flags=AI_PASSIVE;
   
-  errcode = getaddrinfo(NULL,"58001",&hints,&res);
+  errcode = getaddrinfo(NULL,"58091",&hints,&res);
   if(errcode != 0) exit(1); /*error*/
 
   n = bind(fd,res->ai_addr,res->ai_addrlen);
@@ -36,7 +36,7 @@ int main(void)
     write(1,"MSG: ",5);//stdout
     write(1,buffer,n);
 
-    n = sendto(fd,buffer,n,0,(struct sockaddr*)&addr,addrlen);
+    n = sendto(fd,"RSG OK\n",11,0,(struct sockaddr*)&addr,addrlen);
     if(n==-1) exit(1); /*error*/
   }
   

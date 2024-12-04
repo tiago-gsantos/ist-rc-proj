@@ -25,7 +25,7 @@ int main(void)
   hints.ai_family=AF_INET; //IPv4
   hints.ai_socktype=SOCK_DGRAM; //UDP socket
   
-  errcode = getaddrinfo("LAPTOP-R9E7VMSR","58001",&hints,&res);
+  errcode = getaddrinfo("193.136.138.14","58011",&hints,&res);
   if(errcode!=0) exit(1); //error
   
   n = sendto(fd,"Hello!\n",7,0,res->ai_addr,res->ai_addrlen);

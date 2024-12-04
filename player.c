@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <errno.h>
@@ -14,6 +15,7 @@ extern int errno;
 
 #define DEFAULT_PORT "58091"
 #define PORT_STRLEN 6
+#define WAIT_TIME_LIMIT 15
 
 
 
@@ -32,6 +34,8 @@ void get_addr_info(char *GSIP, char* GSport, struct addrinfo **res) {
     hints.ai_family=AF_INET;//IPv4
     hints.ai_socktype=SOCK_STREAM;
     hints.ai_flags=AI_CANONNAME;
+
+    printf("%s %s\n", GSIP, GSport);
     
     if((errcode = getaddrinfo(GSIP, GSport, &hints, res)) != 0) {
         fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(errcode));
@@ -62,13 +66,12 @@ int play(struct addrinfo *res, int fd_udp) {
         
         // Execute command
         if(strcmp(command, "start") == 0) {
-            if(parse_start(buffer, request, &player_id, trial_num) == 0)
+            if(parse_start(buffer, request, trial_num) == 0)
                 cmd_start(request, &player_id, &trial_num, fd_udp, res);
         } 
         else if(strcmp(command, "try") == 0) {
             if(parse_try(buffer, request, player_id, trial_num) == 0)
-                printf("%s", request);
-            //cmd_try();
+                cmd_try(request, &trial_num, fd_udp, res);
         }
         else if(strcmp(command, "show_trials") == 0 || strcmp(command, "st") == 0) {
             if(parse_st(buffer, request, player_id) == 0) 
@@ -91,9 +94,8 @@ int play(struct addrinfo *res, int fd_udp) {
             //cmd_exit();
         }
         else if(strcmp(command, "debug")  == 0) {
-            if(parse_debug(buffer, request, &player_id, trial_num) == 0)
-                printf("%s", request);
-            //cmd_debug();
+            if(parse_debug(buffer, request, trial_num) == 0)
+                cmd_debug(request, &player_id, &trial_num, fd_udp, res);
         }
         else {
             fprintf(stderr, "Invalid command!\n");
@@ -112,6 +114,7 @@ int main(int argc, char *argv[]) {
     char GSIP[INET_ADDRSTRLEN] = "";
     char GSport[PORT_STRLEN] = DEFAULT_PORT;
     struct addrinfo *res;
+    struct timeval timeout;
     
     switch (argc) {
         case 1:
@@ -150,9 +153,24 @@ int main(int argc, char *argv[]) {
     //printf("IP: %s\nPort: %s\n", GSIP, GSport);
     get_addr_info(GSIP, GSport, &res);
 
-    int fd_udp = socket(AF_INET, SOCK_DGRAM, 0); // UDP socket
-    if(fd_udp == -1) exit(1); /* error */
+    int fd_udp = socket(AF_INET, SOCK_DGRAM, 0); 
+    if(fd_udp == -1) {
+        fprintf(stderr, "Error in socket creation\n");
+        exit(1);
+    }
+
+    timeout.tv_sec = WAIT_TIME_LIMIT;  
+    timeout.tv_usec = 0;
+    if (setsockopt(fd_udp, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        fprintf(stderr, "Error in socket creation\n");
+        close(fd_udp);
+        exit(1);
+    }
+
+    
 
     int response = play(res, fd_udp);
+
+    close(fd_udp);
     return response;
 }
