@@ -68,7 +68,7 @@ int play(struct addrinfo *res, int fd_udp) {
         if(strcmp(command, "start") == 0) {
             if(parse_start(buffer, request, trial_num) == 0)
                 cmd_start(request, &player_id, &trial_num, fd_udp, res);
-        } 
+        }
         else if(strcmp(command, "try") == 0) {
             if(parse_try(buffer, request, player_id, trial_num) == 0)
                 cmd_try(request, &trial_num, fd_udp, res);
@@ -76,22 +76,22 @@ int play(struct addrinfo *res, int fd_udp) {
         else if(strcmp(command, "show_trials") == 0 || strcmp(command, "st") == 0) {
             if(parse_st(buffer, request, player_id) == 0) 
                 printf("%s", request);
-            //cmd_st();
+            cmd_st(request, res);
         }
         else if(strcmp(command, "scoreboard") == 0 || strcmp(command, "sb") == 0) {
             if(parse_sb(buffer, request) == 0)
                 printf("%s", request);
-            //cmd_sb();
+            cmd_sb(request, res);
         }
         else if(strcmp(command, "quit")  == 0) {
             if(parse_quit_exit(buffer, request, player_id, trial_num) == 0)
-                printf("%s", request);
-            //cmd_quit();
+                cmd_quit(request, &trial_num, fd_udp, res);
         }
         else if(strcmp(command, "exit")  == 0) {
-            if(parse_quit_exit(buffer, request, player_id, trial_num) == 1)
-                printf("%s", request);
-            //cmd_exit();
+            if(parse_quit_exit(buffer, request, player_id, trial_num) == 0) {
+                cmd_quit(request, &trial_num, fd_udp, res);
+                break;
+            }
         }
         else if(strcmp(command, "debug")  == 0) {
             if(parse_debug(buffer, request, trial_num) == 0)
@@ -104,9 +104,6 @@ int play(struct addrinfo *res, int fd_udp) {
 
     return 0;
 }
-
-
-
 
 
 

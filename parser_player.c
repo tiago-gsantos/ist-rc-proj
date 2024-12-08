@@ -19,10 +19,10 @@ int parse_start(char *buffer, char *request, int trial_num){
         return 1;
     }
 
-    if(trial_num != -1) {
+    /*if(trial_num > 1) {
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
         return 1;
-    }
+    }*/
 
     sprintf(request, "SNG %u %u\n", id, time);
 
@@ -46,7 +46,7 @@ int parse_try(char *buffer, char *request, unsigned int player_id, int trial_num
         }
     }
 
-    if(player_id == 0 || trial_num == -1 || trial_num >= 8) {
+    if(player_id == 0 || trial_num == -1 || trial_num > 8) {
         fprintf(stderr, "Invalid command! Start a new game first.\n");
         return 1;
     }
@@ -101,10 +101,10 @@ int parse_quit_exit(char *buffer, char *request, unsigned int player_id, int tri
         return 1;
     }
 
-    if(player_id == 0 || trial_num == -1 || trial_num >= 8 ) {
+    /*if(player_id == 0 || trial_num == -1 || trial_num >= 8 ) {
         fprintf(stderr, "Invalid command! You are not playing any game.\n");
         return 1;
-    }
+    }*/
 
     sprintf(request, "QUT %u\n", player_id);
 
@@ -136,7 +136,7 @@ int parse_debug(char *buffer, char *request, int trial_num) {
         }
     }
 
-    if(trial_num != -1) {
+    if(trial_num > 1) {
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
         return 1;
     }

@@ -14,7 +14,7 @@ int main(void)
 
   
   fd = socket(AF_INET,SOCK_STREAM,0); //TCP socket
-  if(fd==-1)exit(1); //error
+  if(fd==-1) exit(1); //error
   
   memset(&hints,0,sizeof hints);
   hints.ai_family=AF_INET;//IPv4
