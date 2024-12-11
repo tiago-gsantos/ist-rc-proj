@@ -1,8 +1,8 @@
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -g
 TARGET = player
 SRCS = player.c parser_player.c commands.c
-OBJS = $(SRCS:.c=.o)
+OBJS = $(SRCS:.c=.o) *.txt
 
 all: $(TARGET)
 

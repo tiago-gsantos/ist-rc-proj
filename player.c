@@ -67,35 +67,40 @@ int play(struct addrinfo *res, int fd_udp) {
         // Execute command
         if(strcmp(command, "start") == 0) {
             if(parse_start(buffer, request, trial_num) == 0)
-                cmd_start(request, &player_id, &trial_num, fd_udp, res);
+                if(cmd_start(request, &player_id, &trial_num, fd_udp, res) == 1)
+                    return 1;
         }
         else if(strcmp(command, "try") == 0) {
             if(parse_try(buffer, request, player_id, trial_num) == 0)
-                cmd_try(request, &trial_num, fd_udp, res);
+                if(cmd_try(request, &trial_num, fd_udp, res) == 1)
+                    return 1;
         }
         else if(strcmp(command, "show_trials") == 0 || strcmp(command, "st") == 0) {
             if(parse_st(buffer, request, player_id) == 0) 
-                printf("%s", request);
-            cmd_st(request, res);
+                if(cmd_st(request, res) == 1)
+                    return 1;
         }
         else if(strcmp(command, "scoreboard") == 0 || strcmp(command, "sb") == 0) {
             if(parse_sb(buffer, request) == 0)
-                printf("%s", request);
-            cmd_sb(request, res);
+                if(cmd_sb(request, res) == 1)
+                    return 1;
         }
         else if(strcmp(command, "quit")  == 0) {
             if(parse_quit_exit(buffer, request, player_id, trial_num) == 0)
-                cmd_quit(request, &trial_num, fd_udp, res);
+                if(cmd_quit(request, &trial_num, fd_udp, res))
+                    return 1;
         }
         else if(strcmp(command, "exit")  == 0) {
             if(parse_quit_exit(buffer, request, player_id, trial_num) == 0) {
-                cmd_quit(request, &trial_num, fd_udp, res);
+                if(cmd_quit(request, &trial_num, fd_udp, res) == 1)
+                    return 1;
                 break;
             }
         }
         else if(strcmp(command, "debug")  == 0) {
             if(parse_debug(buffer, request, trial_num) == 0)
-                cmd_debug(request, &player_id, &trial_num, fd_udp, res);
+                if(cmd_debug(request, &player_id, &trial_num, fd_udp, res) == 1)
+                    return 1;
         }
         else {
             fprintf(stderr, "Invalid command!\n");
@@ -169,5 +174,7 @@ int main(int argc, char *argv[]) {
     int response = play(res, fd_udp);
 
     close(fd_udp);
+    freeaddrinfo(res);
+    
     return response;
 }
