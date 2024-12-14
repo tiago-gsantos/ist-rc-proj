@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "stdlib.h": "c",
-        "parser_player.h": "c"
+        "parser_player.h": "c",
+        "commands.h": "c"
     }
 }

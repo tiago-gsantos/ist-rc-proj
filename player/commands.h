@@ -15,7 +15,7 @@
 int send_udp_request(char *request, int fd_udp, struct addrinfo *res, char *response);
 
 int cmd_start(char *request, unsigned int *player_id, int *trial_num, int fd_udp, struct addrinfo *res);
-int cmd_try(char *request, int *trial_num, int fd_udp, struct addrinfo *res);
+int cmd_try(char *request, unsigned int player_id, int *trial_num, int fd_udp, struct addrinfo *res);
 int cmd_st(char *request, struct addrinfo *res);
 int cmd_sb(char *request, struct addrinfo *res);
 int cmd_quit(char *request, int *trial_num, int fd_udp, struct addrinfo *res);

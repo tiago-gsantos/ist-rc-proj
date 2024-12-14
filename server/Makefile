@@ -1,8 +1,8 @@
 CC = gcc
 CFLAGS = -Wall -g
-TARGET = player
-SRCS = player.c parser_player.c commands.c
-OBJS = $(SRCS:.c=.o) *.txt
+TARGET = GS
+SRCS = GS.c parser_server.c commands.c
+OBJS = $(SRCS:.c=.o)
 
 all: $(TARGET)
 
