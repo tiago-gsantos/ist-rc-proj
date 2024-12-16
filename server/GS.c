@@ -60,10 +60,12 @@ int server_udp(int fd_udp, int verbose) {
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
     
-    if(recvfrom(fd_udp, buffer, 256, 0, (struct sockaddr*)&addr, &addrlen) == -1) {
+    ssize_t bytes_received = recvfrom(fd_udp, buffer, 256, 0, (struct sockaddr*)&addr, &addrlen);
+    if(bytes_received == -1) {
         fprintf(stderr, "ERROR");
         return 1;
     }
+    buffer[bytes_received] = '\0';
 
     if(verbose) {
         if(getnameinfo((struct sockaddr *)&addr, addrlen, host, sizeof host, port, sizeof port, 0) == 0) {
@@ -85,8 +87,10 @@ int server_udp(int fd_udp, int verbose) {
     if(strcmp(command, "SNG") == 0) {
         if(parse_start(buffer, &player_id, &time) == 0)
             cmd_start(response, player_id, time);
-        else
+        else {
+            printf("parse\n");
             strcpy(response, "RSG ERR\n");
+        }
     }
     else if(strcmp(command, "TRY") == 0) {
         if(parse_try(buffer, &trial_num, c, &player_id) == 0)

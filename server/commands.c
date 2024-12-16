@@ -37,7 +37,7 @@ void generate_color_code(char c[4]){
 }
 
 
-void number_whites_and_blacks(char code[4], char try[4], int num_w_b[2]){
+void number_blacks_and_whites(char code[5], char try[4], int num_w_b[2]){
     int num_whites = 0;
     int num_blacks = 0;
     int i, j;
@@ -59,8 +59,20 @@ void number_whites_and_blacks(char code[4], char try[4], int num_w_b[2]){
         }
     }
 
-    num_w_b[0] = num_whites;
-    num_w_b[1] = num_blacks;
+    num_w_b[0] = num_blacks;
+    num_w_b[1] = num_whites;
+}
+
+void get_current_time(unsigned int *secs, char *formatted_time) {
+    time_t now = time(NULL);
+    struct tm *local = localtime(&now);
+
+    if(formatted_time != NULL)
+        strftime(formatted_time, 20, "%Y-%m-%d %H:%M:%S", local);
+
+    *secs = (int)now;
+
+    return;
 }
 
 
@@ -78,17 +90,15 @@ void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
     else {
         generate_color_code(c);
         
-        time_t now = time(NULL);
-        struct tm *local = localtime(&now);
-
         char formatted_time[20];
-        strftime(formatted_time, sizeof(formatted_time), "%Y-%m-%d %H:%M:%S", local);
+        unsigned int secs;
 
-        int s = (local->tm_hour * 3600) + (local->tm_min * 60) + local->tm_sec;
+        get_current_time(&secs, formatted_time);
         
-        sprintf(file_data, "%u P %c%c%c%c %u %s %d\n", player_id, c[0], c[1], c[2], c[3], game_time, formatted_time, s);
+        sprintf(file_data, "%u P %c%c%c%c %u %s %u\n", player_id, c[0], c[1], c[2], c[3], game_time, formatted_time, secs);
 
         if(create_file(file_path, file_data) != 0){
+            printf("create file\n");
             strcpy(response, "RSG ERR\n");
             return;
         }
@@ -101,13 +111,29 @@ void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
 
 
 void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4]){
+    //buscar tempo - tempo limite, tempo em segundos, calcular o novo tempo (comparar valores) - primeira coisa a fazer
+    //buscar número da última tentativa - segunda coisa a fazer
+    //buscar todos os código que já metemos nesta tentativa - terceira coisa a fazer
+    //Verificar tempo
+    //Verificar se é jogada - 1 e o código da passada (responder com OK)
+    //Verificar se é duplicada
+    //Verificar se é a última jogada (acertou ou falhou) - mostrar o código
+    
     char file_path[32];
-    char code[4];
-    int num_w_b[2];
+    char code[5];
+    char past_trial[5];
+    int is_duplicated = 0;
+    int is_last_duplicated = 0;
+    int num_b_w[2];
+    unsigned int time_limit;
+    unsigned int start_seconds;
+    unsigned int trial_seconds;
+    int server_trial_num = 0;
+    
     sprintf(file_path, "./GAMES/GAMES_%u.txt", player_id);
 
     FILE *file;
-    file = fopen(file_path, "r+");
+    file = fopen(file_path, "r+"); // fechar ficehiro nos returns
     if(!file || trial_num < 0 || trial_num > 8) {
         strcpy(response, "RTR NOK\n");
         return;
@@ -115,14 +141,68 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
 
     char line[64];
     if(fgets(line, sizeof line, file) != NULL) {
-        for(int i = 0; i < 4; i++)
-            code[i] = line[9+i];
+        if(sscanf(line, "%*s %*c %4s %u %*s %*s %u", code, &time_limit, &start_seconds) != 3){
+            strcpy(response, "RTR ERR\n");
+            return;
+        }
+    } else {
+        strcpy(response, "RTR ERR\n");
+        return;
     }
 
-    number_whites_and_blacks(code, try, num_w_b);
-    
-    sprintf(response, "RTR OK %d %d %d\n", trial_num, num_w_b[0], num_w_b[1]);
+    get_current_time(&trial_seconds, NULL);
 
+    if(trial_seconds >= time_limit + start_seconds){
+        sprintf(response, "RTR ETM %c %c %c %c\n", code[0], code[1], code[2], code[3]);
+        //Fazer quit do jogo
+        return;
+    }
+
+    while(fgets(line, sizeof line, file) != NULL){
+        sscanf(line, "%d: %s", &server_trial_num, past_trial);
+        if(strncmp(try, past_trial, 4) == 0){
+            printf("1\n");
+            if(server_trial_num != trial_num){
+                strcpy(response, "RTR DUP\n");
+                is_duplicated = 1;
+            }
+            else is_last_duplicated = 1;
+        }
+    }
+
+    if(trial_num != server_trial_num + 1){
+        strcpy(response, "RTR INV\n");
+        return;
+    }
+
+    if(is_duplicated) return;
+
+    char code_copy[5], try_copy[5];
+    strcpy(code_copy, code);
+    strcpy(try_copy, try);
+    number_blacks_and_whites(code_copy, try_copy, num_b_w);
+
+    if(trial_num != 8 || num_b_w[0] == 4){
+        sprintf(response, "RTR OK %d %d %d\n", trial_num, num_b_w[0], num_b_w[1]);
+        if(num_b_w[0] == 4){
+            //Fechar o jogo
+        }
+    }
+    else{
+        sprintf(response, "RTR ENT %c %c %c %c\n", code[0], code[1], code[2], code[3]);
+        //Fechar o jogo
+    }
+
+    if(is_last_duplicated == 0){
+        sprintf(line, "%d: %c%c%c%c %d %d %d\n",
+        trial_num, try[0], try[1], try[2], try[3], num_b_w[0], num_b_w[1], trial_seconds);
+        
+        fseek(file, 0, SEEK_END);
+
+        fprintf(file, "%s", line);
+        fflush(file);
+    }
+    
     return;
 }
 
