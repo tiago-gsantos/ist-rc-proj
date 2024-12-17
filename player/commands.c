@@ -176,28 +176,30 @@ int cmd_try(char *request, unsigned int player_id, int *trial_num, int fd_udp, s
     }
     else if(strcmp(status, "INV") == 0){
         printf("Error while communicating with server! Ending the game.\n");
-        
-        sprintf(request, "QUT %u\n", player_id);
-        cmd_quit(request, trial_num, fd_udp, res);
+        *trial_num = -1;
     }
     else if(strcmp(status, "NOK") == 0){
         fprintf(stderr, "Invalid command! Start a new game first.\n");
     }
     else if(strcmp(status, "ENT") == 0){
         if(sscanf(response, "%*s %*s %c %c %c %c %1s", &c[0], &c[1], &c[2], &c[3], extra) != 4) {
+            *trial_num = -1;
             fprintf(stderr, "Invalid response from server!\n");
             return 0; 
         }
         
         fprintf(stderr, "You lost! No more tries left. The color code was: %c %c %c %c\n", c[0], c[1], c[2], c[3]);
+        *trial_num = -1;
     }
     else if(strcmp(status, "ETM") == 0){
         if(sscanf(response, "%*s %*s %c %c %c %c %1s", &c[0], &c[1], &c[2], &c[3], extra) != 4) {
+            *trial_num = -1;
             fprintf(stderr, "Invalid response from server!\n");
             return 0; 
         }
         
         fprintf(stderr, "You lost! Time limit exceeded. The color code was: %c %c %c %c\n", c[0], c[1], c[2], c[3]);
+        *trial_num = -1;
     }
     else if(strcmp(status, "ERR") == 0){
         fprintf(stderr, "Invalid arguments!\n");
@@ -362,6 +364,7 @@ int cmd_quit(char *request, int *trial_num, int fd_udp, struct addrinfo *res){
 
     if(strcmp(status, "OK") == 0){
         if(sscanf(response, "%*s %*s %c %c %c %c %1s", &c[0], &c[1], &c[2], &c[3], extra) != 4) {
+            *trial_num = -1;
             fprintf(stderr, "Invalid response from server!\n");
             return 0; 
         }

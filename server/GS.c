@@ -100,15 +100,13 @@ int server_udp(int fd_udp, int verbose) {
     }
     else if(strcmp(command, "QUT")  == 0) {
         if(parse_quit_exit(buffer, &player_id) == 0)
-            //cmd_quit(request, &trial_num, fd_udp, res_udp);
-            printf("");
+            cmd_quit(response, player_id);
         else
             strcpy(response, "RQT ERR\n");
     }
     else if(strcmp(command, "DBG")  == 0) {
         if(parse_debug(buffer, &player_id, &time, c) == 0)
-            //cmd_debug(request, &trial_num, fd_udp, res_udp);
-            printf("");
+            cmd_debug(response, player_id, time, c);
         else
             strcpy(response, "RDB ERR\n");
     }
