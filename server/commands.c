@@ -109,6 +109,16 @@ int get_game_info(FILE *file, char code[5], unsigned int *time_passed) {
 }
 
 
+char *format_data(char *file_data, char status){
+    return "";
+}
+
+char get_game_status(char* file_path){
+    return 'W';
+}
+
+
+
 void save_game(FILE *file, unsigned int player_id, char status, unsigned int num_trials) {
     char date[11];
     char time[9];
