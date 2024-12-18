@@ -10,6 +10,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <dirent.h>
+
 
 #define WAIT_TIME_LIMIT 15 // ???
 #define TRY_LIMIT 3
@@ -178,10 +180,10 @@ void get_score(unsigned int time, unsigned int number_trials, char mode, char sc
     int time_score;
     int num_trials_score;
 
-    if(time >= 160) time_score = 0;
-    else time_score = 40 - 0.25 * time;
+    if(time >= 250) time_score = 0;
+    else time_score = 50 - 0.20 * time;
 
-    num_trials_score = 60 / number_trials;
+    num_trials_score = 50 - (number_trials - 1) * 7;
 
     if(mode == 'D') {
         sprintf(score, "%03d", (time_score + num_trials_score)/10);
@@ -321,6 +323,114 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
     
     return;
 }
+
+
+int find_last_game(unsigned int player_id, char *file_name) {
+    struct dirent **file_list;
+    int num_entries, found;
+    char dir_name[20];
+    sprintf(dir_name, "GAMES/%u/", player_id);
+    num_entries = scandir(dir_name, &file_list, 0, alphasort);
+    found = 0;
+    if(num_entries <= 0)
+        return 0;
+    else {
+        while (num_entries--){
+        if(file_list[num_entries]->d_name[0] != '.' && !found) {
+            sprintf(file_name, "GAMES/%u/%s", player_id, file_list[num_entries]->d_name);
+            found =1;
+        }
+        free(file_list[num_entries]);
+        }
+        free(file_list);
+    }
+    return found;
+}
+
+/*
+int find_top_scores(SCORELIST *list) {
+    struct dirent **file_list;
+    int num_entries, ifile;
+    char file_name[300];
+    FILE *fp;
+    char mode[8];
+    
+    num_entries = scandir("SCORES/", &file_list, 0, alphasort);
+    if (num_entries <= 0)
+        return 0;
+    else {
+        ifile = 0;
+        while (num_entries--) {
+            if (file_list[num_entries]->d_name[0] != '.' && ifile < 10) {
+                sprintf(file_name, "SCORES/%s", file_list[num_entries]->d_name);
+                fp = fopen(file_name, "r");
+                if (fp != NULL) {
+                    fscanf(fp, "%d %s %s %d %s",
+                           &list->score[ifile],
+                           list->PLID[ifile],
+                           list->colcode[ifile],
+                           &list->notries[ifile],
+                           mode);
+                    
+                    if (!strcmp(mode, "PLAY"))
+                        list->mode[ifile] = MODEPLAY;
+                    if (!strcmp(mode, "DEBUG"))
+                        list->mode[ifile] = MODEDEBUG;
+
+                    fclose(fp);
+                    ++ifile;
+                }
+            }
+            free(file_list[num_entries]);
+        }
+        free(file_list);
+    }
+
+    list->nscores = ifile;
+    return ifile;
+}
+*/
+
+
+void cmd_st(char *response, unsigned int player_id){
+    char code[5];
+    char file_data[1024] = {0};
+    size_t file_size;
+    
+    char file_path[35];
+    sprintf(file_path, "./GAMES/GAMES_%u.txt", player_id);
+
+    FILE *file;
+    file = fopen(file_path, "r");
+    if(file){
+        file_size = fread(file_data, 1, sizeof(file_data) - 1, file);
+        sprintf(response, "RST ACT GAMES_%u.txt %ld %s\n", player_id, file_size, format_data(file_data, 0));
+
+        fclose(file);
+    }
+    else if(find_last_game(player_id, file_path) == 1){
+        file = fopen(file_path, "r");
+
+        file_size = fread(file_data, 1, sizeof(file_data) - 1, file);
+        char status = get_game_status(file_path);
+        sprintf(response, "RST FIN GAMES_%u.txt %ld %s\n", player_id, file_size, format_data(file_data, status));
+
+        fclose(file);
+    }
+    else
+        strcpy(response, "RST NOK\n");
+
+    return;
+}
+
+
+void cmd_sb(char *response){
+    char code[5];
+    
+
+    return;
+}
+
 
 void cmd_quit(char *response, unsigned int player_id){
     char file_path[32];

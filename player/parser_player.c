@@ -3,7 +3,7 @@
 #include <string.h>
 
 
-int parse_start(char *buffer, char *request, int trial_num){
+int parse_start(char *buffer, char *request, int trial_num, unsigned int *player_id){
     unsigned int id;
     unsigned int time;
     char extra[2];
@@ -23,6 +23,8 @@ int parse_start(char *buffer, char *request, int trial_num){
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
         return 1;
     }*/
+
+   *player_id = id;
 
     sprintf(request, "SNG %u %u\n", id, time);
 
@@ -112,7 +114,7 @@ int parse_quit_exit(char *buffer, char *request, unsigned int player_id, int tri
 }
 
 
-int parse_debug(char *buffer, char *request, int trial_num) {
+int parse_debug(char *buffer, char *request, int trial_num, unsigned int *player_id) {
     unsigned int id;
     unsigned int time;
     char c[4];
@@ -128,6 +130,8 @@ int parse_debug(char *buffer, char *request, int trial_num) {
         fprintf(stderr, "Invalid arguments!\n");
         return 1;
     }
+
+    *player_id = id;
 
     for(int i=0; i<4; i++) {
         if(strchr("RGBYOP", c[i]) == 0) {

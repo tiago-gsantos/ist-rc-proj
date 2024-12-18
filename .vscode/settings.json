@@ -2,6 +2,8 @@
     "files.associations": {
         "stdlib.h": "c",
         "parser_player.h": "c",
-        "commands.h": "c"
+        "commands.h": "c",
+        "stat.h": "c",
+        "types.h": "c"
     }
 }

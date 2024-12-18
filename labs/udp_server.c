@@ -32,7 +32,7 @@ int main(void)
     addrlen = sizeof(addr);
     n = recvfrom(fd,buffer,128,0,(struct sockaddr*)&addr,&addrlen);
     if(n == -1) exit(1); /*error*/
-    
+
     write(1,"MSG: ",5);//stdout
     write(1,buffer,n);
 

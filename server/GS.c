@@ -18,7 +18,6 @@ extern int errno;
 
 
 
-
 void get_addr_info(char* GSport, struct addrinfo **res_udp, struct addrinfo **res_tcp) {
     struct addrinfo hints;
     int errcode;
@@ -56,6 +55,7 @@ int server_udp(int fd_udp, int verbose) {
     unsigned int time;
     unsigned int player_id;
     int trial_num;
+    int invalid_req = 0;
     
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(addr);
@@ -76,50 +76,145 @@ int server_udp(int fd_udp, int verbose) {
     }
 
     if(sscanf(buffer, "%3s", command) != 1) {
-        if(verbose)
-            fprintf(stderr, "The client didn't type a command.\n");
+        invalid_req = 2;
         strcpy(response, "ERR\n");
-        
-        sendto(fd_udp, response, strlen(response) * sizeof(char), 0, (struct sockaddr*)&addr, addrlen);
-        return 1;
     };
 
-    if(strcmp(command, "SNG") == 0) {
-        if(parse_start(buffer, &player_id, &time) == 0)
-            cmd_start(response, player_id, time);
+    if(invalid_req != 2) {
+        if(strcmp(command, "SNG") == 0) {
+            if(parse_start(buffer, &player_id, &time) == 0)
+                cmd_start(response, player_id, time);
+            else {
+                invalid_req = 1;
+                strcpy(response, "RSG ERR\n");
+            }
+        }
+        else if(strcmp(command, "TRY") == 0) {
+            if(parse_try(buffer, &trial_num, c, &player_id) == 0)
+                cmd_try(response, player_id, trial_num, c);
+            else {
+                invalid_req = 1;
+                strcpy(response, "RTR ERR\n");
+            }
+        }
+        else if(strcmp(command, "QUT")  == 0) {
+            if(parse_quit_exit(buffer, &player_id) == 0)
+                cmd_quit(response, player_id);
+            else {
+                invalid_req = 1;
+                strcpy(response, "RQT ERR\n");
+            }
+        }
+        else if(strcmp(command, "DBG")  == 0) {
+            if(parse_debug(buffer, &player_id, &time, c) == 0)
+                cmd_debug(response, player_id, time, c);
+            else {
+                invalid_req = 1;
+                strcpy(response, "RDB ERR\n");
+            }
+        }
         else {
-            printf("parse\n");
-            strcpy(response, "RSG ERR\n");
+            invalid_req = 1;
+            strcpy(response, "ERR\n");
         }
     }
-    else if(strcmp(command, "TRY") == 0) {
-        if(parse_try(buffer, &trial_num, c, &player_id) == 0)
-            cmd_try(response, player_id, trial_num, c);
+
+    
+    if(verbose) {
+        if(invalid_req == 1)
+            printf("The client sent an invalid request.\n");
+        else if(invalid_req == 2)
+            printf("The client didn't type a command.\n");
         else
-            strcpy(response, "RTR ERR\n");
-    }
-    else if(strcmp(command, "QUT")  == 0) {
-        if(parse_quit_exit(buffer, &player_id) == 0)
-            cmd_quit(response, player_id);
-        else
-            strcpy(response, "RQT ERR\n");
-    }
-    else if(strcmp(command, "DBG")  == 0) {
-        if(parse_debug(buffer, &player_id, &time, c) == 0)
-            cmd_debug(response, player_id, time, c);
-        else
-            strcpy(response, "RDB ERR\n");
-    }
-    else {
-        if(verbose)
-            fprintf(stderr, "The client sent an invalid request.\n");
-        strcpy(response, "ERR\n");
+            printf("Player %u sent a %s command\n", player_id, command);
     }
 
     if(sendto(fd_udp, response, strlen(response) * sizeof(char), 0, (struct sockaddr*)&addr, addrlen) < 0) return 1;
     
     return 0;
 }
+
+
+int server_tcp(int fd_tcp, int verbose) {
+    char buffer[32];
+    char command[4]; 
+    char response[1024];
+    unsigned int player_id;
+    int invalid_req = 0;
+    
+    ssize_t bytes_read = 0;
+    ssize_t total_bytes_read = 0;
+    do {
+        bytes_read = read(fd_tcp, buffer + total_bytes_read, 32 - total_bytes_read);
+        
+        if(bytes_read == -1)
+            return 1;
+
+        total_bytes_read += bytes_read;
+        break;
+    }
+    while(bytes_read > 0);
+
+    buffer[total_bytes_read] = '\0';
+
+
+    if(sscanf(buffer, "%3s", command) != 1) {
+        invalid_req = 2;
+        strcpy(response, "ERR\n");
+    };
+
+
+    if(invalid_req != 2) {
+        if(strcmp(command, "STR") == 0) {
+            if(parse_st(buffer, &player_id) == 0)
+                cmd_st(response, player_id);
+            else {
+                invalid_req = 1;
+                strcpy(response, "RSG ERR\n");
+            }
+        }
+        else if(strcmp(command, "SSB") == 0) {
+            if(parse_sb(buffer) == 0)
+                cmd_sb(response);
+            else {
+                invalid_req = 1;
+                strcpy(response, "RTR ERR\n");
+            }
+        }
+        else {
+            invalid_req = 1;
+            strcpy(response, "ERR\n");
+        }
+    }
+    
+    if(verbose) {
+        if(invalid_req == 1)
+            printf("The client sent an invalid request.\n");
+        else if(invalid_req == 2)
+            printf("The client didn't type a command.\n");
+        else
+            printf("Player %u sent a %s command\n", player_id, command);
+    }
+    
+    
+    ssize_t bytes_left = strlen(response) * sizeof(char);
+    ssize_t bytes_written = 0;
+    ssize_t total_bytes_written = 0;
+
+
+    while(bytes_left > 0) {
+        bytes_written = write(fd_tcp, response + total_bytes_written, bytes_left);
+        if(bytes_written < 0) return 1; /*error*/
+        
+        bytes_left -= bytes_written;
+        total_bytes_read += bytes_written;
+    }
+    
+    return 0;
+}
+
+
+
 
 int main(int argc, char *argv[]) {
     char GSport[PORT_STRLEN] = DEFAULT_PORT;
@@ -191,6 +286,19 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    struct timeval tv;
+    tv.tv_sec = 5;
+    tv.tv_usec = 0;
+
+    int optval = 1;
+    
+    if (setsockopt(fd_tcp, SOL_SOCKET, SO_RCVBUF, &tv, sizeof(tv)) < 0 ||
+        setsockopt(fd_tcp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        fprintf(stderr, "setsockopt failed\n");
+        return 1;
+    }
+
+
     if(bind(fd_tcp, res_tcp->ai_addr, res_tcp->ai_addrlen) == -1) {
         fprintf(stderr, "ERROR");
         return 1;
@@ -200,6 +308,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "ERROR");
         return 1;
     }
+
 
     FD_ZERO(&inputs);
     FD_SET(0, &inputs); // é preciso ligar isto ???
@@ -230,8 +339,39 @@ int main(int argc, char *argv[]) {
             }
 
             if(FD_ISSET(fd_tcp, &test_fds)) {
-                // accept
-                // coisas tcp
+                struct sockaddr_in addr;
+                socklen_t addrlen = sizeof(addr);
+
+                int new_fd = accept(fd_tcp, (struct sockaddr*) &addr, &addrlen);
+                if(new_fd == -1) exit(1); // error
+
+
+                char host[NI_MAXHOST], port[NI_MAXSERV];
+                if(verbose) {
+                    if(getnameinfo((struct sockaddr *)&addr, addrlen, host, sizeof host, port, sizeof port, 0) == 0) {
+                        printf("Request sent by [%s:%s]\n", host, port);
+                    }
+                    else {
+                        fprintf(stderr, "ERROR\n");
+                    }
+                }
+
+                pid_t pid;
+                if((pid = fork()) == -1)
+                    exit(1); // error
+                else if (pid == 0) {
+                    close(fd_tcp);
+                    
+                    server_tcp(new_fd, verbose);
+
+                    close(new_fd);
+
+                    exit(0);
+                }
+
+                int ret;
+                do ret = close(new_fd);
+                while(ret == -1);
             }
             break;
         }

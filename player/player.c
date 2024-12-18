@@ -62,7 +62,7 @@ int play(struct addrinfo *res_udp, struct addrinfo *res_tcp, int fd_udp) {
     while(1) {
         char buffer[256];
         char command[12]; 
-        char request[256];
+        char request[32];
 
         if(!fgets(buffer, sizeof(buffer), stdin)) {
             fprintf(stderr, "ERROR!\n");
@@ -76,7 +76,7 @@ int play(struct addrinfo *res_udp, struct addrinfo *res_tcp, int fd_udp) {
         
         // Execute command
         if(strcmp(command, "start") == 0) {
-            if(parse_start(buffer, request, trial_num) == 0)
+            if(parse_start(buffer, request, trial_num, &player_id) == 0)
                 if(cmd_start(request, &player_id, &trial_num, fd_udp, res_udp) == 1)
                     return 1;
         }
@@ -108,7 +108,7 @@ int play(struct addrinfo *res_udp, struct addrinfo *res_tcp, int fd_udp) {
             }
         }
         else if(strcmp(command, "debug")  == 0) {
-            if(parse_debug(buffer, request, trial_num) == 0)
+            if(parse_debug(buffer, request, trial_num, &player_id) == 0)
                 if(cmd_debug(request, &player_id, &trial_num, fd_udp, res_udp) == 1)
                     return 1;
         }
