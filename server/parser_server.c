@@ -54,7 +54,8 @@ int parse_st(char *buffer, unsigned int *id) {
 int parse_sb(char *buffer) {
     char extra[2];
 
-    if(sscanf(buffer, "%*s %1s", extra) != 0)
+    int ret = sscanf(buffer, "%*s %1s", extra);
+    if(ret != 0 && ret != -1)
         return 1;
 
     return 0;

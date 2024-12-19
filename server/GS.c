@@ -139,7 +139,7 @@ int server_tcp(int fd_tcp, int verbose) {
     char buffer[32];
     char command[4]; 
     char response[1024];
-    unsigned int player_id;
+    unsigned int player_id = 0;
     int invalid_req = 0;
     
     ssize_t bytes_read = 0;
@@ -192,11 +192,13 @@ int server_tcp(int fd_tcp, int verbose) {
             printf("The client sent an invalid request.\n");
         else if(invalid_req == 2)
             printf("The client didn't type a command.\n");
+        else if(player_id == 0)
+            printf("A player sent a %s command\n", command);
         else
             printf("Player %u sent a %s command\n", player_id, command);
     }
     
-    
+
     ssize_t bytes_left = strlen(response) * sizeof(char);
     ssize_t bytes_written = 0;
     ssize_t total_bytes_written = 0;
@@ -286,14 +288,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    struct timeval tv;
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
 
     int optval = 1;
     
-    if (setsockopt(fd_tcp, SOL_SOCKET, SO_RCVBUF, &tv, sizeof(tv)) < 0 ||
-        setsockopt(fd_tcp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+    if (setsockopt(fd_tcp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
         fprintf(stderr, "setsockopt failed\n");
         return 1;
     }
@@ -304,14 +302,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if(listen(fd_tcp, 1) == -1) { // numero de tcp connections ???
+    if(listen(fd_tcp, 1024) == -1) {
         fprintf(stderr, "ERROR");
         return 1;
     }
 
 
     FD_ZERO(&inputs);
-    FD_SET(0, &inputs); // é preciso ligar isto ???
     FD_SET(fd_udp, &inputs);
     FD_SET(fd_tcp, &inputs);
 
@@ -330,10 +327,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "ERROR");
             return 1;
         default:
-            if(FD_ISSET(0, &test_fds)) {
-                // input
-            }
-
             if(FD_ISSET(fd_udp, &test_fds)) {
                 server_udp(fd_udp, verbose);
             }

@@ -74,7 +74,8 @@ void get_current_time(unsigned int *secs, char *formatted_time) {
     if(formatted_time != NULL)
         strftime(formatted_time, 20, "%Y-%m-%d %H:%M:%S", local);
 
-    *secs = (int)now;
+    if(secs != NULL)
+        *secs = (int)now;
 
     return;
 }
@@ -109,12 +110,110 @@ int get_game_info(FILE *file, char code[5], unsigned int *time_passed) {
 }
 
 
-char *format_data(char *file_data, char status){
-    return "";
+ssize_t format_data(FILE *file, char status[8], unsigned int player_id, char *formatted_data){
+    char mode;
+    char code[5];
+    unsigned int time_limit;
+    char start_time[9];
+    char start_date[11];
+    char end_time[9];
+    char end_date[11];
+    char line[128];
+    TRYSLIST trys;
+    unsigned int current_seconds;
+    unsigned int start_seconds;
+    int number_trials = -1;
+
+    fseek(file, 0, SEEK_SET);
+
+    while(fgets(line, sizeof line, file) != NULL) { 
+        if(number_trials == -1){
+            if(sscanf(line, "%*s %c %s %u %s %s %u", 
+            &mode, code, &time_limit, start_date, start_time, &start_seconds) != 6){
+                return 0;
+            }
+            if(!status){
+                sprintf(line, "Active game found for player %u\n", player_id);
+                strcpy(formatted_data, line);
+                sprintf(line, "Game initiated: %s %s with %u seconds to be completed\n",
+                start_date, start_time, time_limit);
+                strcat(formatted_data, line);
+            }
+            else{
+                sprintf(line, "Last finalized game for player %u\n", player_id);
+                strcpy(formatted_data, line);
+                sprintf(line, "Game initiated: %s %s with %u seconds to be completed\n",
+                start_date, start_time, time_limit);
+                strcat(formatted_data, line);
+                if(mode == 'D')
+                    sprintf(line, "Mode: DEBUG Secret code: %s\n", code);
+                else
+                    sprintf(line, "Mode: PLAY Secret code: %s\n", code);
+                strcat(formatted_data, line);
+            }
+            number_trials++;
+        }
+        else{
+            if(line[0] == 'T'){
+                if(sscanf(line, "%*s %s %d %d %u", trys.codes[number_trials], &trys.num_blacks[number_trials],
+                &trys.num_whites[number_trials], &trys.time[number_trials]) != 4){
+                    return 0;
+                }
+                number_trials++;
+            }
+            else{
+                if(sscanf(line, "%s %s %u", end_date, end_time, &current_seconds) != 3){
+                    return 0;
+                }
+            }
+        }
+    } 
+
+    sprintf(line, "\n\t--- Transactions found: %d ---\n\n", number_trials);
+    strcat(formatted_data, line);
+
+    for(int i = 0; i < number_trials; i++){
+        sprintf(line, "Trial: %s, nB: %d, nW: %d at %us\n", trys.codes[i],
+        trys.num_blacks[i], trys.num_whites[i], trys.time[i]);
+        strcat(formatted_data, line);
+    }
+
+    if(!status){
+        get_current_time(&current_seconds, NULL);
+        sprintf(line, "-- %u seconds remaining to be completed --\n", time_limit - (current_seconds - start_seconds));
+    }
+    else
+        sprintf(line, "Termination: %s at %s %s, Duration: %us\n", status, end_date,
+        end_time, current_seconds);
+    strcat(formatted_data, line);
+
+    return strlen(formatted_data);
 }
 
-char get_game_status(char* file_path){
-    return 'W';
+void get_game_status(char* file_path, char *status){
+    char status_char;
+    status_char = file_path[29];
+
+    switch (status_char){
+        case 'W':
+            strcpy(status, "WIN");
+            break;
+        case 'Q':
+            strcpy(status, "QUIT");
+            break;
+        case 'F':
+            strcpy(status, "FAIL");
+            break;
+        case 'T':
+            strcpy(status, "TIMEOUT");
+            break;
+        default:
+            strcpy(status, "UNKNOWN");
+    }
+
+    printf("%s\n", status);
+
+    return;
 }
 
 
@@ -125,12 +224,13 @@ void save_game(FILE *file, unsigned int player_id, char status, unsigned int num
     unsigned int start_secs;
     char mode;
     char code[5];
+    unsigned int time_limit;
     
     fseek(file, 0, SEEK_SET);
 
     char line[64];
     if(fgets(line, sizeof line, file) != NULL) { 
-        if(sscanf(line, "%*s %c %s %*u %4s-%2s-%s %2s:%2s:%s %u", &mode, code, date, date+4, date+6, time, time+2, time+4, &start_secs) != 9)
+        if(sscanf(line, "%*s %c %s %u %4s-%2s-%s %2s:%2s:%s %u", &mode, code, &time_limit, date, date+4, date+6, time, time+2, time+4, &start_secs) != 10)
             return;
     } else
         return;
@@ -140,8 +240,12 @@ void save_game(FILE *file, unsigned int player_id, char status, unsigned int num
     unsigned int current_secs;
     get_current_time(&current_secs, formatted_time);
 
-
-    sprintf(line, "%s %u\n", formatted_time, current_secs - start_secs);
+    if(current_secs - start_secs > time_limit){
+        sprintf(line, "%s %u\n", formatted_time, time_limit);
+    }
+    else
+        sprintf(line, "%s %u\n", formatted_time, current_secs - start_secs);
+    
 
     fseek(file, 0, SEEK_END);
     fprintf(file, "%s", line);
@@ -181,7 +285,6 @@ void save_game(FILE *file, unsigned int player_id, char status, unsigned int num
         create_file(file_path, line); // erro ?
     }
     
-    
     return;
 }
 
@@ -206,7 +309,6 @@ void get_score(unsigned int time, unsigned int number_trials, char mode, char sc
 }
 
 
-
 void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
     char file_data[64];
     char c[4];
@@ -217,7 +319,7 @@ void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
     sprintf(file_path, "./GAMES/GAMES_%u.txt", player_id);
 
     FILE *file;
-    file = fopen(file_path, "r");
+    file = fopen(file_path, "r+");
     if(file){
         int game_status = get_game_info(file, NULL, &secs);
         if(game_status == -1) {
@@ -357,13 +459,12 @@ int find_last_game(unsigned int player_id, char *file_name) {
     return found;
 }
 
-/*
+
 int find_top_scores(SCORELIST *list) {
     struct dirent **file_list;
     int num_entries, ifile;
     char file_name[300];
     FILE *fp;
-    char mode[8];
     
     num_entries = scandir("SCORES/", &file_list, 0, alphasort);
     if (num_entries <= 0)
@@ -375,17 +476,12 @@ int find_top_scores(SCORELIST *list) {
                 sprintf(file_name, "SCORES/%s", file_list[num_entries]->d_name);
                 fp = fopen(file_name, "r");
                 if (fp != NULL) {
-                    fscanf(fp, "%d %s %s %d %s",
-                           &list->score[ifile],
-                           list->PLID[ifile],
-                           list->colcode[ifile],
-                           &list->notries[ifile],
-                           mode);
-                    
-                    if (!strcmp(mode, "PLAY"))
-                        list->mode[ifile] = MODEPLAY;
-                    if (!strcmp(mode, "DEBUG"))
-                        list->mode[ifile] = MODEDEBUG;
+                    fscanf(fp, "%s %u %s %u %s",
+                           list->score[ifile],
+                           &list->PLID[ifile],
+                           list->code[ifile],
+                           &list->num_tries[ifile],
+                           list->mode[ifile]);
 
                     fclose(fp);
                     ++ifile;
@@ -396,34 +492,57 @@ int find_top_scores(SCORELIST *list) {
         free(file_list);
     }
 
-    list->nscores = ifile;
+    list->num_scores = ifile;
     return ifile;
 }
-*/
 
 
 void cmd_st(char *response, unsigned int player_id){
-    char code[5];
-    char file_data[1024] = {0};
-    size_t file_size;
+    char formatted_data[1024];
+    char status[8];
+    ssize_t form_data_size;
     
     char file_path[35];
     sprintf(file_path, "./GAMES/GAMES_%u.txt", player_id);
 
     FILE *file;
-    file = fopen(file_path, "r");
+    file = fopen(file_path, "r+");
     if(file){
-        file_size = fread(file_data, 1, sizeof(file_data) - 1, file);
-        sprintf(response, "RST ACT GAMES_%u.txt %ld %s\n", player_id, file_size, format_data(file_data, 0));
+        unsigned int secs;
+        int game_status = get_game_info(file, NULL, &secs);
+        if(game_status == -1) {
+            strcpy(response, "RST ERR\n");
+            fclose(file);
+            return;
+        }
+        else if(game_status == 0) {
+            form_data_size = format_data(file, NULL, player_id, formatted_data);
+            
+            if(form_data_size == 0)
+                strcpy(response, "RST ERR\n");
+            else
+                sprintf(response, "RST ACT STATUS_%u.txt %ld %s", player_id, form_data_size, formatted_data);
 
-        fclose(file);
+            fclose(file);
+            return;
+        }
+        else if(game_status == 1) {
+            save_game(file, player_id, 'T', 0);
+            //fclose(file);
+        }
     }
-    else if(find_last_game(player_id, file_path) == 1){
+    
+    if(find_last_game(player_id, file_path) == 1){
         file = fopen(file_path, "r");
 
-        file_size = fread(file_data, 1, sizeof(file_data) - 1, file);
-        char status = get_game_status(file_path);
-        sprintf(response, "RST FIN GAMES_%u.txt %ld %s\n", player_id, file_size, format_data(file_data, status));
+        get_game_status(file_path, status);
+        
+        form_data_size = format_data(file, status, player_id, formatted_data);
+
+        if(form_data_size == 0)
+            strcpy(response, "RST ERR\n");
+        else
+            sprintf(response, "RST FIN STATUS_%u.txt %ld %s", player_id, form_data_size, formatted_data);
 
         fclose(file);
     }
@@ -435,9 +554,39 @@ void cmd_st(char *response, unsigned int player_id){
 
 
 void cmd_sb(char *response){
-    char code[5];
-    
+    char file_data[1024];
+    char line[64];
+    char date[20];
+    SCORELIST score_list;
 
+    memset(&score_list, 0, sizeof(SCORELIST));
+    
+    if(find_top_scores(&score_list) == 0) {
+        strcpy(response, "RSS EMPTY\n");
+        return;
+    }
+
+    strcpy(file_data, "---------------------- TOP 10 SCORES ----------------------\n\n");
+    strcat(file_data, "           SCORE   PLAYER   CODE   TRIALS   MODE\n");
+
+
+    for(unsigned int i = 0; i < score_list.num_scores; i++) {
+        if(i+1 != 10)
+            sprintf(line, "     %u -    %s    %u   %s      %u     %s\n", i+1, score_list.score[i], score_list.PLID[i], score_list.code[i], score_list.num_tries[i], score_list.mode[i]);
+        else
+            sprintf(line, "    %u -    %s    %u   %s      %u     %s\n", i+1, score_list.score[i], score_list.PLID[i], score_list.code[i], score_list.num_tries[i], score_list.mode[i]);
+
+        strcat(file_data, line);
+    }
+
+    if(score_list.num_scores < 10)
+        strcat(file_data, "     (no more games)\n");
+
+    get_current_time(NULL, date);
+    
+    date[10] = '_';
+    sprintf(response, "RSS OK TOPSCORES_%s.txt %ld %s\n", date, strlen(file_data), file_data);
+    
     return;
 }
 
@@ -481,7 +630,7 @@ void cmd_debug(char *response, unsigned int player_id, unsigned int game_time, c
     sprintf(file_path, "./GAMES/GAMES_%u.txt", player_id);
 
     FILE *file;
-    file = fopen(file_path, "r");
+    file = fopen(file_path, "r+");
     if(file){
         int game_status = get_game_info(file, NULL, &secs);
         if(game_status == -1) {

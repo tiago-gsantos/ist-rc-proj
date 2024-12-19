@@ -163,7 +163,7 @@ int cmd_try(char *request, unsigned int player_id, int *trial_num, int fd_udp, s
         }
         if(nb == 4) {
             *trial_num = -1;
-            printf("You win the game!\n");
+            printf("You won the game!\n");
         }
         else {
             (*trial_num)++;
@@ -232,7 +232,7 @@ int cmd_st(char *request, struct addrinfo *res){
 
 
     if(sscanf(response, "%3s %4s", res_cmd, status) != 2){
-        fprintf(stderr, "Invalid response from server!\n");
+        fprintf(stderr, "Invalid response from server! - %s\n", response);
         free(response);
         return 0;
     }
@@ -260,7 +260,7 @@ int cmd_st(char *request, struct addrinfo *res){
         }
     }
     else if(strcmp(status, "NOK") == 0){
-        printf("Invalid command! You are not playing any game.\n");
+        printf("Invalid command! You haven't played a game yet.\n");
     }
     else if(strcmp(status, "ERR") == 0){
         fprintf(stderr, "Invalid response from server!\n");
@@ -296,20 +296,20 @@ int cmd_sb(char *request, struct addrinfo *res){
 
 
     if(sscanf(response, "%3s %6s", res_cmd, status) != 2){
-        fprintf(stderr, "Invalid response from server!\n");
+        fprintf(stderr, "Invalid response from server! 1\n");
         free(response);
         return 0;
     }
    
     if(strcmp(res_cmd, "RSS") != 0){
-        fprintf(stderr, "Invalid response from server!\n");
+        fprintf(stderr, "Invalid response from server! 2\n");
         free(response);
         return 0;
     }
 
     if(strcmp(status, "OK") == 0){
         if(sscanf(response, "%*s %*s %s %u", f_name, &f_size) != 2){
-            fprintf(stderr, "Invalid response from server!\n");
+            fprintf(stderr, "Invalid response from server! 3\n");
             free(response);
             return 0;
         }
@@ -327,10 +327,10 @@ int cmd_sb(char *request, struct addrinfo *res){
         printf("No game was yet won by any player!\n");
     }
     else if(strcmp(status, "ERR") == 0){
-        fprintf(stderr, "Invalid response from server!\n");
+        fprintf(stderr, "Invalid response from server! 4\n");
     }
     else{
-        fprintf(stderr, "Invalid response from server!\n");
+        fprintf(stderr, "Invalid response from server! 5\n");
     }
 
     free(response);

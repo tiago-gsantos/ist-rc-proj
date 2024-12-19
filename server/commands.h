@@ -16,6 +16,23 @@
 #include <dirent.h>
 
 
+typedef struct {
+    char score[10][4];
+    unsigned int PLID[10];
+    char code[10][5];
+    unsigned int num_tries[10];
+    char mode[10][6];
+    unsigned int num_scores;
+} SCORELIST;
+
+typedef struct {
+    char codes[8][5];
+    int num_whites[8];
+    int num_blacks[8];
+    unsigned int time[8];
+} TRYSLIST;
+
+
 void cmd_start(char *response, unsigned int player_id, unsigned int time);
 void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4]);
 void cmd_st(char *response, unsigned int player_id);
@@ -30,7 +47,7 @@ int get_game_info(FILE *file, char code[5], unsigned int *current_seconds);
 void get_score(unsigned int time, unsigned int number_trials, char mode, char score[4]);
 void save_game(FILE *file, unsigned int player_id, char status, unsigned int num_trials);
 int find_last_game(unsigned int player_id, char *file_name);
-char *format_data(char *file_data, char status);
-char get_game_status(char* file_path);
+ssize_t format_data(FILE *file, char status[8], unsigned int player_id, char *formatted_data);
+void get_game_status(char* file_path, char *status);
 
 #endif // COMMANDS
