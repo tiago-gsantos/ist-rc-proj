@@ -47,9 +47,11 @@ void get_addr_info(char* GSport, struct addrinfo **res_udp, struct addrinfo **re
     return;
 }
 
+
 int server_udp(int fd_udp, int verbose) {
     char buffer[256];
     char command[4]; 
+    char status[6];
     char response[256];
     char c[5];
     char host[NI_MAXHOST], port[NI_MAXSERV];
@@ -62,7 +64,10 @@ int server_udp(int fd_udp, int verbose) {
     socklen_t addrlen = sizeof(addr);
     
     ssize_t bytes_received = recvfrom(fd_udp, buffer, 256, 0, (struct sockaddr*)&addr, &addrlen);
-    if(bytes_received == -1) return 1;
+    if(bytes_received == -1) {
+        fprintf(stderr, "Error communicating with player\n");
+        return 1;
+    }
 
     buffer[bytes_received] = '\0';
 
@@ -81,32 +86,40 @@ int server_udp(int fd_udp, int verbose) {
 
     if(invalid_req != 2) {
         if(strcmp(command, "SNG") == 0) {
-            if(parse_start(buffer, &player_id, &time) == 0)
-                cmd_start(response, player_id, time);
+            if(parse_start(buffer, &player_id, &time) == 0) {
+                if(cmd_start(response, player_id, time) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RSG ERR\n");
             }
         }
         else if(strcmp(command, "TRY") == 0) {
-            if(parse_try(buffer, &trial_num, c, &player_id) == 0)
-                cmd_try(response, player_id, trial_num, c);
+            if(parse_try(buffer, &trial_num, c, &player_id) == 0) {
+                if(cmd_try(response, player_id, trial_num, c) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RTR ERR\n");
             }
         }
         else if(strcmp(command, "QUT")  == 0) {
-            if(parse_quit_exit(buffer, &player_id) == 0)
-                cmd_quit(response, player_id);
+            if(parse_quit_exit(buffer, &player_id) == 0) {
+                if(cmd_quit(response, player_id) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RQT ERR\n");
             }
         }
         else if(strcmp(command, "DBG")  == 0) {
-            if(parse_debug(buffer, &player_id, &time, c) == 0)
-                cmd_debug(response, player_id, time, c);
+            if(parse_debug(buffer, &player_id, &time, c) == 0) {
+                if(cmd_debug(response, player_id, time, c) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RDB ERR\n");
@@ -121,14 +134,19 @@ int server_udp(int fd_udp, int verbose) {
     
     if(verbose) {
         if(invalid_req == 1)
-            printf("The client sent an invalid request.\n");
+            printf("The client sent an invalid request.\nSending 'ERR'\n\n");
         else if(invalid_req == 2)
-            printf("The client didn't type a command.\n");
-        else
-            printf("Player %u sent a %s command\n", player_id, command);
+            printf("The client didn't type a command.\nSending 'ERR'\n\n");
+        else{
+            sscanf(response, "%*s %s", status);
+            printf("Player %u sent a %s command\nSending a response with status %s\n\n", player_id, command, status);
+        }
     }
 
-    if(sendto(fd_udp, response, strlen(response) * sizeof(char), 0, (struct sockaddr*)&addr, addrlen) < 0) return 1;
+    if(sendto(fd_udp, response, strlen(response) * sizeof(char), 0, (struct sockaddr*)&addr, addrlen) < 0) {
+        fprintf(stderr, "Error communicating with player\n");
+        return 1;
+    }
     
     return 0;
 }
@@ -137,15 +155,21 @@ int server_udp(int fd_udp, int verbose) {
 int server_tcp(int fd_tcp, int verbose) {
     char buffer[32];
     char command[4]; 
+    char status[6];
     char response[1024];
     unsigned int player_id = 0;
     int invalid_req = 0;
     
     ssize_t bytes_read = 0;
     ssize_t total_bytes_read = 0;
+    
     do {
         bytes_read = read(fd_tcp, buffer + total_bytes_read, 32 - total_bytes_read);
-        if(bytes_read == -1) return 1;
+
+        if(bytes_read == -1) {
+            fprintf(stderr, "Error communicating with player\n");
+            return 1;
+        }
 
         total_bytes_read += bytes_read;
         break;
@@ -153,7 +177,7 @@ int server_tcp(int fd_tcp, int verbose) {
     while(bytes_read > 0);
 
     buffer[total_bytes_read] = '\0';
-
+    
 
     if(sscanf(buffer, "%3s", command) != 1) {
         invalid_req = 2;
@@ -163,19 +187,23 @@ int server_tcp(int fd_tcp, int verbose) {
 
     if(invalid_req != 2) {
         if(strcmp(command, "STR") == 0) {
-            if(parse_st(buffer, &player_id) == 0)
-                cmd_st(response, player_id);
+            if(parse_st(buffer, &player_id) == 0) {
+                if(cmd_st(response, player_id) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
-                strcpy(response, "RSG ERR\n");
+                strcpy(response, "RST ERR\n");
             }
         }
         else if(strcmp(command, "SSB") == 0) {
-            if(parse_sb(buffer) == 0)
-                cmd_sb(response);
+            if(parse_sb(buffer) == 0) {
+                if(cmd_sb(response) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
-                strcpy(response, "RTR ERR\n");
+                strcpy(response, "RSS ERR\n");
             }
         }
         else {
@@ -186,13 +214,17 @@ int server_tcp(int fd_tcp, int verbose) {
     
     if(verbose) {
         if(invalid_req == 1)
-            printf("The client sent an invalid request.\n");
+            printf("The client sent an invalid request\nSending 'ERR'\n\n");
         else if(invalid_req == 2)
-            printf("The client didn't type a command.\n");
-        else if(player_id == 0)
-            printf("A player sent a %s command\n", command);
-        else
-            printf("Player %u sent a %s command\n", player_id, command);
+            printf("The client didn't type a command\nSending 'ERR'\n\n");
+        else if(player_id == 0){
+            sscanf(response, "%*s %s", status);
+            printf("A player sent a %s command\nSending a response with status '%s'\n\n", command, status);
+        }
+        else {
+            sscanf(response, "%*s %s", status);
+            printf("Player %u sent a %s command\nSending a response with status '%s'\n\n", player_id, command, status);
+        }
     }
     
 
@@ -203,7 +235,10 @@ int server_tcp(int fd_tcp, int verbose) {
 
     while(bytes_left > 0) {
         bytes_written = write(fd_tcp, response + total_bytes_written, bytes_left);
-        if(bytes_written < 0) return 1;
+        if(bytes_written < 0) {
+            fprintf(stderr, "Error communicating with player\n");
+            return 1;
+        }
         
         bytes_left -= bytes_written;
         total_bytes_read += bytes_written;
@@ -211,8 +246,6 @@ int server_tcp(int fd_tcp, int verbose) {
     
     return 0;
 }
-
-
 
 
 int main(int argc, char *argv[]) {
@@ -337,7 +370,7 @@ int main(int argc, char *argv[]) {
         
         switch (out_fds)
         {
-        case 0: // TODO
+        case 0:
             printf("Timeout\n");
             break;
         case -1:
@@ -345,12 +378,11 @@ int main(int argc, char *argv[]) {
             freeaddrinfo(res_tcp);
             close(fd_udp);
             close(fd_tcp);
-            fprintf(stderr, "Error "); //TODO
+            fprintf(stderr, "Error in select\n");
             return 1;
         default:
             if(FD_ISSET(fd_udp, &test_fds)) {
                 if(server_udp(fd_udp, verbose) == 1) {
-                    fprintf(stderr, "Error communicating with player\n");
                     freeaddrinfo(res_udp);
                     freeaddrinfo(res_tcp);
                     close(fd_udp);
@@ -383,11 +415,11 @@ int main(int argc, char *argv[]) {
                 }
 
                 if(server_tcp(fd_udp, verbose) == 1) {
-                    fprintf(stderr, "Error communicating with player\n");
                     freeaddrinfo(res_udp);
                     freeaddrinfo(res_tcp);
                     close(fd_udp);
                     close(fd_tcp);
+                    close(new_fd);
                     return 1;
                 }
 
