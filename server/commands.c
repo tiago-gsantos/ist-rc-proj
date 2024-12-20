@@ -377,7 +377,12 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
 
 
     int game_status = get_game_info(file, code, &trial_seconds);
-    printf("%4s - %4s\n", try, code);
+    
+    for(int i = 0; i < 4; i++){
+        printf("%c\n", code[i]);
+        printf("%c\n", try[i]);
+    }
+
     if(game_status == -1) {
         strcpy(response, "RTR ERR\n");
         return;
@@ -412,6 +417,11 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
     strcpy(code_copy, code);
     strcpy(try_copy, try);
 
+    for(int i = 0; i < 4; i++){
+        printf("%c\n", code_copy[i]);
+        printf("%c\n", try_copy[i]);
+    }
+    
     number_blacks_and_whites(code_copy, try_copy, num_b_w);
 
     if(trial_num != 8 || num_b_w[0] == 4){
