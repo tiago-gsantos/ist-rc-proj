@@ -49,6 +49,7 @@ void get_addr_info(char *GSIP, char* GSport, struct addrinfo **res_udp, struct a
     
     if((errcode = getaddrinfo(GSIP, GSport, &hints, res_tcp)) != 0) {
         fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(errcode));
+        freeaddrinfo(*res_udp);
         exit(1);
     }
 
@@ -59,13 +60,14 @@ void get_addr_info(char *GSIP, char* GSport, struct addrinfo **res_udp, struct a
 int play(struct addrinfo *res_udp, struct addrinfo *res_tcp, int fd_udp) {
     int trial_num = -1;
     unsigned int player_id = 0;
+
     while(1) {
         char buffer[256];
         char command[12]; 
         char request[32];
 
         if(!fgets(buffer, sizeof(buffer), stdin)) {
-            fprintf(stderr, "ERROR!\n");
+            fprintf(stderr, "Error reading from stdin!\n");
             return 1;
         }
 
@@ -111,9 +113,8 @@ int play(struct addrinfo *res_udp, struct addrinfo *res_tcp, int fd_udp) {
                 if(cmd_debug(request, &player_id, &trial_num, fd_udp, res_udp) == 1)
                     return 1;
         }
-        else {
+        else
             fprintf(stderr, "Invalid command!\n");
-        }
     }
 
     return 0;
@@ -166,15 +167,19 @@ int main(int argc, char *argv[]) {
     int fd_udp = socket(AF_INET, SOCK_DGRAM, 0); 
     if(fd_udp == -1) {
         fprintf(stderr, "Error in socket creation\n");
-        exit(1);
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        return 1;
     }
 
     timeout.tv_sec = WAIT_TIME_LIMIT;  
     timeout.tv_usec = 0;
     if (setsockopt(fd_udp, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         fprintf(stderr, "Error in socket creation\n");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
         close(fd_udp);
-        exit(1);
+        return 1;
     }
 
 

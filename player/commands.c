@@ -11,7 +11,6 @@
 #include <ctype.h>
 
 
-#define WAIT_TIME_LIMIT 15
 #define TRY_LIMIT 3
 #define RESPONSE_LEN 32
 
@@ -74,13 +73,19 @@ int send_tcp_request(char *request, struct addrinfo *res, char *response) {
     fd = socket(AF_INET,SOCK_STREAM,0); //TCP socket
     if(fd == -1) return 1; //error
   
-    if(connect(fd, res->ai_addr, res->ai_addrlen) == -1) return 1; /*error*/
+    if(connect(fd, res->ai_addr, res->ai_addrlen) == -1) {
+        close(fd);
+        return 1; /*error*/
+    }
 
     bytes_left = strlen(request) * sizeof(char);
 
     while(bytes_left > 0) {
         bytes_written = write(fd, request, bytes_left);
-        if(bytes_written < 0) return 1; /*error*/
+        if(bytes_written < 0) {
+            close(fd);
+            return 1; /*error*/
+        }
         
         bytes_left -= bytes_written;
         request += bytes_written;
@@ -93,14 +98,20 @@ int send_tcp_request(char *request, struct addrinfo *res, char *response) {
 
     do {
         bytes_read = read(fd, response + total_bytes_read, bytes_left);
-        if(bytes_read == -1) return 1;
+        if(bytes_read == -1) {
+            close(fd);
+            return 1;
+        }
 
         bytes_left -= bytes_read;
         total_bytes_read += bytes_read;
 
         if(bytes_left == 0){
             response = (char *) realloc(response, total_bytes_read * 2);
-            if(response == NULL) return 1;
+            if(response == NULL) {
+                close(fd);
+                return 1;
+            } 
             bytes_left += strlen(response) * sizeof(char);
         }
 
@@ -152,7 +163,7 @@ int cmd_start(char *request, unsigned int *player_id, int *trial_num, int fd_udp
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
     }
     else if(strcmp(status, "OK") == 0){
-        //*trial_num = 1;
+        *trial_num = 1;
         printf("The game has started!\n");
     }
     else{
@@ -304,12 +315,10 @@ int cmd_st(char *request, struct addrinfo *res){
         return 1;
     }
 
-    if(strcmp(status, "NOK") == 0){
+    if(strcmp(status, "NOK") == 0)
         printf("Invalid command! You haven't played a game yet.\n");
-    }
-    else if(strcmp(status, "ERR") == 0){
+    else if(strcmp(status, "ERR") == 0)
         fprintf(stderr, "Invalid response from server!\n");
-    }
     else{
         fprintf(stderr, "Invalid response from server! Ending session.\n");
         free(response);
@@ -381,12 +390,10 @@ int cmd_sb(char *request, struct addrinfo *res){
         return 1;
     }
 
-    if(strcmp(status, "EMPTY") == 0){
+    if(strcmp(status, "EMPTY") == 0)
         printf("No game was yet won by any player!\n");
-    }
-    else if(strcmp(status, "ERR") == 0){
+    else if(strcmp(status, "ERR") == 0)
         fprintf(stderr, "Invalid response from server!\n");
-    }
     else{
         fprintf(stderr, "Invalid response from server! Ending session.\n");
         free(response);
@@ -435,9 +442,8 @@ int cmd_quit(char *request, int *trial_num, int fd_udp, struct addrinfo *res){
         printf("You are not playing any game.\n");
         *trial_num = -1;
     }
-    else if(strcmp(status, "ERR") == 0){
+    else if(strcmp(status, "ERR") == 0)
         fprintf(stderr, "Invalid response from server!\n");
-    }
     else{
         fprintf(stderr, "Invalid response from server! Ending session.\n");
         return 1;
@@ -474,12 +480,10 @@ int cmd_debug(char *request, unsigned int *player_id, int *trial_num, int fd_udp
         *trial_num = 1;
         printf("The game has started!\n");
     }
-    else if(strcmp(status, "NOK") == 0){
+    else if(strcmp(status, "NOK") == 0)
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
-    }
-    else if(strcmp(status, "ERR") == 0){
+    else if(strcmp(status, "ERR") == 0)
         fprintf(stderr, "Invalid arguments!\n");
-    }
     else {
         fprintf(stderr, "Invalid response from server! Ending session.\n");
         return 1;

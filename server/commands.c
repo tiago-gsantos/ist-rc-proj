@@ -654,17 +654,21 @@ void cmd_debug(char *response, unsigned int player_id, unsigned int game_time, c
     FILE *file;
     file = fopen(file_path, "r+");
     if(file){
-        int game_status = get_game_info(file, NULL, &secs);
-        if(game_status == -1) {
-            strcpy(response, "RDB ERR\n");
-            return;
-        }
-        else if(game_status == 0) {
-            sprintf(response, "RDB NOK\n");
-            return;
-        }
-        else if(game_status == 1) {
-            //quit
+        char buffer[1024];
+        fgets(buffer, sizeof buffer, file);
+        if(fgets(buffer, sizeof buffer, file) != NULL) {
+            
+            int game_status = get_game_info(file, NULL, &secs);
+            if(game_status == -1) {
+                strcpy(response, "RDB ERR\n");
+                return;
+            }
+            else if(game_status == 0) {
+                sprintf(response, "RDB NOK\n");
+                return;
+            }
+            else if(game_status == 1)
+                save_game(file, player_id, 'T', 0);
         }
     }
 
