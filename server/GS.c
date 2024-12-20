@@ -40,6 +40,7 @@ void get_addr_info(char* GSport, struct addrinfo **res_udp, struct addrinfo **re
     
     if((errcode = getaddrinfo(NULL, GSport, &hints, res_tcp)) != 0) {
         fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(errcode));
+        freeaddrinfo(*res_udp);
         exit(1);
     }
 
@@ -51,6 +52,7 @@ int server_udp(int fd_udp, int verbose) {
     char command[4]; 
     char response[256];
     char c[5];
+    char status[6];
     char host[NI_MAXHOST], port[NI_MAXSERV];
     unsigned int time;
     unsigned int player_id;
@@ -62,7 +64,7 @@ int server_udp(int fd_udp, int verbose) {
     
     ssize_t bytes_received = recvfrom(fd_udp, buffer, 256, 0, (struct sockaddr*)&addr, &addrlen);
     if(bytes_received == -1) {
-        fprintf(stderr, "ERROR");
+        fprintf(stderr, "Error communicating with server");
         return 1;
     }
     buffer[bytes_received] = '\0';
@@ -72,7 +74,7 @@ int server_udp(int fd_udp, int verbose) {
             printf("Request sent by [%s:%s]\n", host, port);
         }
         else
-            fprintf(stderr, "ERROR");
+            fprintf(stderr, "Error while getting hostname\n");
     }
 
     if(sscanf(buffer, "%3s", command) != 1) {
@@ -122,14 +124,19 @@ int server_udp(int fd_udp, int verbose) {
     
     if(verbose) {
         if(invalid_req == 1)
-            printf("The client sent an invalid request.\n");
+            printf("The client sent an invalid request.\nSending 'ERR'\n\n");
         else if(invalid_req == 2)
-            printf("The client didn't type a command.\n");
-        else
-            printf("Player %u sent a %s command\n", player_id, command);
+            printf("The client didn't type a command.\nSending 'ERR'\n\n");
+        else {
+            sscanf(response, "%*s %s", status);
+            printf("Player %u sent a %s command\nSending a response with status '%s'\n\n", player_id, command, status);
+        }
     }
 
-    if(sendto(fd_udp, response, strlen(response) * sizeof(char), 0, (struct sockaddr*)&addr, addrlen) < 0) return 1;
+    if(sendto(fd_udp, response, strlen(response) * sizeof(char), 0, (struct sockaddr*)&addr, addrlen) < 0) {
+        fprintf(stderr, "Error communicating with server");
+        return 1;
+    }
     
     return 0;
 }
@@ -137,7 +144,8 @@ int server_udp(int fd_udp, int verbose) {
 
 int server_tcp(int fd_tcp, int verbose) {
     char buffer[32];
-    char command[4]; 
+    char command[4];
+    char status[6];
     char response[1024];
     unsigned int player_id = 0;
     int invalid_req = 0;
@@ -147,8 +155,10 @@ int server_tcp(int fd_tcp, int verbose) {
     do {
         bytes_read = read(fd_tcp, buffer + total_bytes_read, 32 - total_bytes_read);
         
-        if(bytes_read == -1)
+        if(bytes_read == -1) {
+            fprintf(stderr, "Error communicating with server");
             return 1;
+        }
 
         total_bytes_read += bytes_read;
         break;
@@ -170,7 +180,7 @@ int server_tcp(int fd_tcp, int verbose) {
                 cmd_st(response, player_id);
             else {
                 invalid_req = 1;
-                strcpy(response, "RSG ERR\n");
+                strcpy(response, "RST ERR\n");
             }
         }
         else if(strcmp(command, "SSB") == 0) {
@@ -178,7 +188,7 @@ int server_tcp(int fd_tcp, int verbose) {
                 cmd_sb(response);
             else {
                 invalid_req = 1;
-                strcpy(response, "RTR ERR\n");
+                strcpy(response, "RSS ERR\n");
             }
         }
         else {
@@ -189,13 +199,17 @@ int server_tcp(int fd_tcp, int verbose) {
     
     if(verbose) {
         if(invalid_req == 1)
-            printf("The client sent an invalid request.\n");
+            printf("The client sent an invalid request.\nSending 'ERR'\n\n");
         else if(invalid_req == 2)
-            printf("The client didn't type a command.\n");
-        else if(player_id == 0)
-            printf("A player sent a %s command\n", command);
-        else
-            printf("Player %u sent a %s command\n", player_id, command);
+            printf("The client didn't type a command.\nSending 'ERR'\n\n");
+        else if(player_id == 0) {
+            sscanf(response, "%*s %s", status);
+            printf("A player sent a %s command\nSending a response with status '%s'\n\n", command, status);
+        }
+        else {
+            sscanf(response, "%*s %s", status);
+            printf("Player %u sent a %s command\nSending a response with status '%s'\n\n", player_id, command, status);
+        }
     }
     
 
@@ -206,7 +220,10 @@ int server_tcp(int fd_tcp, int verbose) {
 
     while(bytes_left > 0) {
         bytes_written = write(fd_tcp, response + total_bytes_written, bytes_left);
-        if(bytes_written < 0) return 1; /*error*/
+        if(bytes_written < 0) {
+            fprintf(stderr, "Error communicating with server");
+            return 1;
+        }
         
         bytes_left -= bytes_written;
         total_bytes_read += bytes_written;
@@ -271,12 +288,17 @@ int main(int argc, char *argv[]) {
     // UDP socket
     int fd_udp = socket(AF_INET, SOCK_DGRAM, 0); 
     if(fd_udp == -1) {
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
         fprintf(stderr, "Error in socket creation\n");
         return 1;
     }
 
     if(bind(fd_udp, res_udp->ai_addr, res_udp->ai_addrlen) == -1) {
-        fprintf(stderr, "ERROR");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        fprintf(stderr, "Error binding socket\n");
         return 1;
     }
 
@@ -284,6 +306,9 @@ int main(int argc, char *argv[]) {
     // TCP socket
     int fd_tcp = socket(AF_INET, SOCK_STREAM, 0); 
     if(fd_tcp == -1) {
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
         fprintf(stderr, "Error in socket creation\n");
         return 1;
     }
@@ -292,18 +317,30 @@ int main(int argc, char *argv[]) {
     int optval = 1;
     
     if (setsockopt(fd_tcp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        fprintf(stderr, "setsockopt failed\n");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        close(fd_tcp);
+        fprintf(stderr, "Setsockopt failed\n");
         return 1;
     }
 
 
     if(bind(fd_tcp, res_tcp->ai_addr, res_tcp->ai_addrlen) == -1) {
-        fprintf(stderr, "ERROR");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        close(fd_tcp);
+        fprintf(stderr, "Error binding socket");
         return 1;
     }
 
     if(listen(fd_tcp, 1024) == -1) {
-        fprintf(stderr, "ERROR");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        close(fd_tcp);
+        fprintf(stderr, "Error listening socket");
         return 1;
     }
 
@@ -324,11 +361,21 @@ int main(int argc, char *argv[]) {
             printf("Timeout\n");
             break;
         case -1:
-            fprintf(stderr, "ERROR");
+            fprintf(stderr, "Error in select\n");
+            freeaddrinfo(res_udp);
+            freeaddrinfo(res_tcp);
+            close(fd_udp);
+            close(fd_tcp);
             return 1;
         default:
             if(FD_ISSET(fd_udp, &test_fds)) {
-                server_udp(fd_udp, verbose);
+                if(server_udp(fd_udp, verbose) == 1) {
+                    freeaddrinfo(res_udp);
+                    freeaddrinfo(res_tcp);
+                    close(fd_udp);
+                    close(fd_tcp);
+                    return 1;
+                }
             }
 
             if(FD_ISSET(fd_tcp, &test_fds)) {
@@ -336,20 +383,31 @@ int main(int argc, char *argv[]) {
                 socklen_t addrlen = sizeof(addr);
 
                 int new_fd = accept(fd_tcp, (struct sockaddr*) &addr, &addrlen);
-                if(new_fd == -1) exit(1); // error
-
+                if(new_fd == -1) {
+                    freeaddrinfo(res_udp);
+                    freeaddrinfo(res_tcp);
+                    close(fd_udp);
+                    close(fd_tcp);
+                    return 1;
+                }
 
                 char host[NI_MAXHOST], port[NI_MAXSERV];
                 if(verbose) {
                     if(getnameinfo((struct sockaddr *)&addr, addrlen, host, sizeof host, port, sizeof port, 0) == 0) {
                         printf("Request sent by [%s:%s]\n", host, port);
                     }
-                    else {
-                        fprintf(stderr, "ERROR\n");
-                    }
+                    else
+                        fprintf(stderr, "Error while getting hostname\n");
                 }
 
-                server_tcp(new_fd, verbose);
+                if(server_tcp(new_fd, verbose) == 1) {
+                    freeaddrinfo(res_udp);
+                    freeaddrinfo(res_tcp);
+                    close(fd_udp);
+                    close(fd_tcp);
+                    close(new_fd);
+                    return 1;
+                }
 
                 close(new_fd);
             }

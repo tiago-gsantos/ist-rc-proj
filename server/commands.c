@@ -87,6 +87,8 @@ int get_game_info(FILE *file, char code[5], unsigned int *time_passed) {
     unsigned int time_limit;
     unsigned int current_seconds;
 
+    fseek(file, 0, SEEK_SET);
+
     if(fgets(line, sizeof line, file) != NULL) { 
         if(code) {
             if(sscanf(line, "%*s %*c %s %u %*s %*s %u", code, &time_limit, &start_seconds) != 3)
@@ -132,15 +134,15 @@ ssize_t format_data(FILE *file, char status[8], unsigned int player_id, char *fo
             &mode, code, &time_limit, start_date, start_time, &start_seconds) != 6){
                 return 0;
             }
-            if(!status){
-                sprintf(line, "Active game found for player %u\n", player_id);
+            if(!status) {
+                sprintf(line, "   Active game found for player %u\n", player_id);
                 strcpy(formatted_data, line);
                 sprintf(line, "Game initiated: %s %s with %u seconds to be completed\n",
                 start_date, start_time, time_limit);
                 strcat(formatted_data, line);
             }
             else{
-                sprintf(line, "Last finalized game for player %u\n", player_id);
+                sprintf(line, "   Last finalized game for player %u\n", player_id);
                 strcpy(formatted_data, line);
                 sprintf(line, "Game initiated: %s %s with %u seconds to be completed\n",
                 start_date, start_time, time_limit);
@@ -322,7 +324,6 @@ void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
         char buffer[1024];
         fgets(buffer, sizeof buffer, file);
         if(fgets(buffer, sizeof buffer, file) != NULL) {
-            
             int game_status = get_game_info(file, NULL, &secs);
             if(game_status == -1) {
                 strcpy(response, "RSG ERR\n");
@@ -522,7 +523,6 @@ void cmd_st(char *response, unsigned int player_id){
         }
         else if(game_status == 0) {
             form_data_size = format_data(file, NULL, player_id, formatted_data);
-            
             if(form_data_size == 0)
                 strcpy(response, "RST ERR\n");
             else
@@ -654,17 +654,21 @@ void cmd_debug(char *response, unsigned int player_id, unsigned int game_time, c
     FILE *file;
     file = fopen(file_path, "r+");
     if(file){
-        int game_status = get_game_info(file, NULL, &secs);
-        if(game_status == -1) {
-            strcpy(response, "RDB ERR\n");
-            return;
-        }
-        else if(game_status == 0) {
-            sprintf(response, "RDB NOK\n");
-            return;
-        }
-        else if(game_status == 1) {
-            //quit
+        char buffer[1024];
+        fgets(buffer, sizeof buffer, file);
+        if(fgets(buffer, sizeof buffer, file) != NULL) {
+            int game_status = get_game_info(file, NULL, &secs);
+            if(game_status == -1) {
+                strcpy(response, "RDB ERR\n");
+                return;
+            }
+            else if(game_status == 0) {
+                sprintf(response, "RDB NOK\n");
+                return;
+            }
+            else if(game_status == 1) {
+                save_game(file, player_id, 'T', 0);
+            }
         }
     }
 
