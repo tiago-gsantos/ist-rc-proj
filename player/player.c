@@ -101,11 +101,10 @@ int play(struct addrinfo *res_udp, struct addrinfo *res_tcp, int fd_udp) {
                     return 1;
         }
         else if(strcmp(command, "exit")  == 0) {
-            if(parse_quit_exit(buffer, request, player_id, trial_num) == 0) {
+            if(parse_quit_exit(buffer, request, player_id, trial_num) == 0)
                 if(cmd_quit(request, &trial_num, fd_udp, res_udp) == 1)
                     return 1;
-                break;
-            }
+            break;
         }
         else if(strcmp(command, "debug")  == 0) {
             if(parse_debug(buffer, request, trial_num, &player_id) == 0)

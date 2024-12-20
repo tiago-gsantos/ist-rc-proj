@@ -14,5 +14,6 @@ $(TARGET): $(OBJS)
 
 clean:
 	rm -f $(TARGET) $(OBJS)
+	rm -rf ./GAMES/* ./SCORES/*
 
 .PHONY: all clean
