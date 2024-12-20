@@ -13,9 +13,6 @@
 #include <dirent.h>
 
 
-#define WAIT_TIME_LIMIT 15 // ???
-#define TRY_LIMIT 3
-#define RESPONSE_LEN 32
 
 
 int create_file(char *f_name, char *f_data) {
@@ -66,6 +63,7 @@ void number_blacks_and_whites(char code[5], char try[4], int num_b_w[2]){
     num_b_w[0] = num_blacks;
     num_b_w[1] = num_whites;
 }
+
 
 void get_current_time(unsigned int *secs, char *formatted_time) {
     time_t now = time(NULL);
@@ -210,8 +208,6 @@ void get_game_status(char* file_path, char *status){
         default:
             strcpy(status, "UNKNOWN");
     }
-
-    printf("%s\n", status);
 
     return;
 }
@@ -528,7 +524,7 @@ void cmd_st(char *response, unsigned int player_id){
         }
         else if(game_status == 1) {
             save_game(file, player_id, 'T', 0);
-            //fclose(file);
+            fclose(file);
         }
     }
     
@@ -599,21 +595,35 @@ void cmd_quit(char *response, unsigned int player_id){
     FILE *file;
     file = fopen(file_path, "r+");
     if(file){
-        char line[64];
-
-        if(fgets(line, sizeof line, file) != NULL) { 
-            if(sscanf(line, "%*s %*c %s", code) != 1){
-                strcpy(response, "RQT ERR\n");
-                return;
-            }
-        } else {
+        unsigned int secs;
+        int game_status = get_game_info(file, NULL, &secs);
+        if(game_status == -1) {
             strcpy(response, "RQT ERR\n");
             return;
         }
-        
-        save_game(file, player_id, 'Q', 0);
-        
-        sprintf(response, "RQT OK %c %c %c %c\n", code[0], code[1], code[2], code[3]);
+        else if(game_status == 0) {
+            char line[64];
+
+            fseek(file, 0, SEEK_SET);
+            if(fgets(line, sizeof line, file) != NULL) { 
+                if(sscanf(line, "%*s %*c %s", code) != 1){
+                    strcpy(response, "RQT ERR\n");
+                    return;
+                }
+            } else {
+                strcpy(response, "RQT ERR\n");
+                return;
+            }
+            
+            save_game(file, player_id, 'Q', 0);
+            
+            sprintf(response, "RQT OK %c %c %c %c\n", code[0], code[1], code[2], code[3]);
+        }
+        else if(game_status == 1) {
+            save_game(file, player_id, 'T', 0);
+
+            strcpy(response, "RQT NOK\n");
+        }
     }
     else
         strcpy(response, "RQT NOK\n");

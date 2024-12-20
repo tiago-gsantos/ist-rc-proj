@@ -178,7 +178,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    
 
     int response = play(res_udp, res_tcp, fd_udp);
 
