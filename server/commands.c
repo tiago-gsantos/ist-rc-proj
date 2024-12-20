@@ -413,6 +413,10 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
 
     if(is_duplicated) return;
 
+    for(int i = 0; i < 4; i++){
+        printf("%c\n", code[i]);
+    }
+
     char code_copy[5], try_copy[5];
     strcpy(code_copy, code);
     strcpy(try_copy, try);
@@ -421,7 +425,7 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
         printf("%c\n", code_copy[i]);
         printf("%c\n", try_copy[i]);
     }
-    
+
     number_blacks_and_whites(code_copy, try_copy, num_b_w);
 
     if(trial_num != 8 || num_b_w[0] == 4){
