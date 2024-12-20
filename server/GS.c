@@ -13,9 +13,9 @@ extern int errno;
 #include "commands.h"
 #include "parser_server.h"
 
+
 #define DEFAULT_PORT "58091"
 #define PORT_STRLEN 6
-
 
 
 void get_addr_info(char* GSport, struct addrinfo **res_udp, struct addrinfo **res_tcp) {
@@ -39,6 +39,7 @@ void get_addr_info(char* GSport, struct addrinfo **res_udp, struct addrinfo **re
     hints.ai_flags=AI_PASSIVE;
     
     if((errcode = getaddrinfo(NULL, GSport, &hints, res_tcp)) != 0) {
+        freeaddrinfo(*res_udp);
         fprintf(stderr, "Error: getaddrinfo: %s\n", gai_strerror(errcode));
         exit(1);
     }
@@ -61,10 +62,8 @@ int server_udp(int fd_udp, int verbose) {
     socklen_t addrlen = sizeof(addr);
     
     ssize_t bytes_received = recvfrom(fd_udp, buffer, 256, 0, (struct sockaddr*)&addr, &addrlen);
-    if(bytes_received == -1) {
-        fprintf(stderr, "ERROR");
-        return 1;
-    }
+    if(bytes_received == -1) return 1;
+
     buffer[bytes_received] = '\0';
 
     if(verbose) {
@@ -72,7 +71,7 @@ int server_udp(int fd_udp, int verbose) {
             printf("Request sent by [%s:%s]\n", host, port);
         }
         else
-            fprintf(stderr, "ERROR");
+            fprintf(stderr, "Couldn't get sender's hostname\n");
     }
 
     if(sscanf(buffer, "%3s", command) != 1) {
@@ -146,9 +145,7 @@ int server_tcp(int fd_tcp, int verbose) {
     ssize_t total_bytes_read = 0;
     do {
         bytes_read = read(fd_tcp, buffer + total_bytes_read, 32 - total_bytes_read);
-        
-        if(bytes_read == -1)
-            return 1;
+        if(bytes_read == -1) return 1;
 
         total_bytes_read += bytes_read;
         break;
@@ -206,7 +203,7 @@ int server_tcp(int fd_tcp, int verbose) {
 
     while(bytes_left > 0) {
         bytes_written = write(fd_tcp, response + total_bytes_written, bytes_left);
-        if(bytes_written < 0) return 1; /*error*/
+        if(bytes_written < 0) return 1;
         
         bytes_left -= bytes_written;
         total_bytes_read += bytes_written;
@@ -271,12 +268,17 @@ int main(int argc, char *argv[]) {
     // UDP socket
     int fd_udp = socket(AF_INET, SOCK_DGRAM, 0); 
     if(fd_udp == -1) {
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
         fprintf(stderr, "Error in socket creation\n");
         return 1;
     }
 
     if(bind(fd_udp, res_udp->ai_addr, res_udp->ai_addrlen) == -1) {
-        fprintf(stderr, "ERROR");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        fprintf(stderr, "Error binding socket\n");
         return 1;
     }
 
@@ -284,26 +286,41 @@ int main(int argc, char *argv[]) {
     // TCP socket
     int fd_tcp = socket(AF_INET, SOCK_STREAM, 0); 
     if(fd_tcp == -1) {
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
         fprintf(stderr, "Error in socket creation\n");
         return 1;
     }
 
-
+    // 
     int optval = 1;
     
     if (setsockopt(fd_tcp, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        fprintf(stderr, "setsockopt failed\n");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        close(fd_tcp);
+        fprintf(stderr, "Setsockopt failed\n");
         return 1;
     }
 
 
     if(bind(fd_tcp, res_tcp->ai_addr, res_tcp->ai_addrlen) == -1) {
-        fprintf(stderr, "ERROR");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        close(fd_tcp);
+        fprintf(stderr, "Error binding socket\n");
         return 1;
     }
 
     if(listen(fd_tcp, 1024) == -1) {
-        fprintf(stderr, "ERROR");
+        freeaddrinfo(res_udp);
+        freeaddrinfo(res_tcp);
+        close(fd_udp);
+        close(fd_tcp);
+        fprintf(stderr, "Error listening to socket\n");
         return 1;
     }
 
@@ -320,15 +337,26 @@ int main(int argc, char *argv[]) {
         
         switch (out_fds)
         {
-        case 0:
+        case 0: // TODO
             printf("Timeout\n");
             break;
         case -1:
-            fprintf(stderr, "ERROR");
+            freeaddrinfo(res_udp);
+            freeaddrinfo(res_tcp);
+            close(fd_udp);
+            close(fd_tcp);
+            fprintf(stderr, "Error "); //TODO
             return 1;
         default:
             if(FD_ISSET(fd_udp, &test_fds)) {
-                server_udp(fd_udp, verbose);
+                if(server_udp(fd_udp, verbose) == 1) {
+                    fprintf(stderr, "Error communicating with player\n");
+                    freeaddrinfo(res_udp);
+                    freeaddrinfo(res_tcp);
+                    close(fd_udp);
+                    close(fd_tcp);
+                    return 1;
+                }
             }
 
             if(FD_ISSET(fd_tcp, &test_fds)) {
@@ -336,20 +364,32 @@ int main(int argc, char *argv[]) {
                 socklen_t addrlen = sizeof(addr);
 
                 int new_fd = accept(fd_tcp, (struct sockaddr*) &addr, &addrlen);
-                if(new_fd == -1) exit(1); // error
+                if(new_fd == -1) {
+                    fprintf(stderr, "Error accepting player socket\n");
+                    freeaddrinfo(res_udp);
+                    freeaddrinfo(res_tcp);
+                    close(fd_udp);
+                    close(fd_tcp);
+                    return 1;
+                }
 
 
                 char host[NI_MAXHOST], port[NI_MAXSERV];
                 if(verbose) {
-                    if(getnameinfo((struct sockaddr *)&addr, addrlen, host, sizeof host, port, sizeof port, 0) == 0) {
+                    if(getnameinfo((struct sockaddr *)&addr, addrlen, host, sizeof host, port, sizeof port, 0) == 0)
                         printf("Request sent by [%s:%s]\n", host, port);
-                    }
-                    else {
-                        fprintf(stderr, "ERROR\n");
-                    }
+                    else 
+                        fprintf(stderr, "Couldn't get sender's hostname\n");
                 }
 
-                server_tcp(new_fd, verbose);
+                if(server_tcp(fd_udp, verbose) == 1) {
+                    fprintf(stderr, "Error communicating with player\n");
+                    freeaddrinfo(res_udp);
+                    freeaddrinfo(res_tcp);
+                    close(fd_udp);
+                    close(fd_tcp);
+                    return 1;
+                }
 
                 close(new_fd);
             }
