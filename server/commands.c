@@ -41,6 +41,12 @@ void generate_color_code(char c[4]){
 void number_blacks_and_whites(char code[5], char try[4], int num_b_w[2]){
     int num_whites = 0;
     int num_blacks = 0;
+
+    for(int i = 0; i < 4; i++){
+        printf("%c\n", code[i]);
+        printf("%c\n", try[i]);
+    }
+
     int i, j;
     for(i = 0; i < 4; i++){
         if(try[i] == code[i]){
