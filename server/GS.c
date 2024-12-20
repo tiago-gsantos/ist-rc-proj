@@ -84,32 +84,40 @@ int server_udp(int fd_udp, int verbose) {
 
     if(invalid_req != 2) {
         if(strcmp(command, "SNG") == 0) {
-            if(parse_start(buffer, &player_id, &time) == 0)
-                cmd_start(response, player_id, time);
+            if(parse_start(buffer, &player_id, &time) == 0) {
+                if(cmd_start(response, player_id, time) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RSG ERR\n");
             }
         }
         else if(strcmp(command, "TRY") == 0) {
-            if(parse_try(buffer, &trial_num, c, &player_id) == 0)
-                cmd_try(response, player_id, trial_num, c);
+            if(parse_try(buffer, &trial_num, c, &player_id) == 0) {
+                if(cmd_try(response, player_id, trial_num, c) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RTR ERR\n");
             }
         }
         else if(strcmp(command, "QUT")  == 0) {
-            if(parse_quit_exit(buffer, &player_id) == 0)
-                cmd_quit(response, player_id);
+            if(parse_quit_exit(buffer, &player_id) == 0) {
+                if(cmd_quit(response, player_id) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RQT ERR\n");
             }
         }
         else if(strcmp(command, "DBG")  == 0) {
-            if(parse_debug(buffer, &player_id, &time, c) == 0)
-                cmd_debug(response, player_id, time, c);
+            if(parse_debug(buffer, &player_id, &time, c) == 0) {
+                if(cmd_debug(response, player_id, time, c) == 1)
+                    return 1;
+            }
             else {
                 invalid_req = 1;
                 strcpy(response, "RDB ERR\n");
