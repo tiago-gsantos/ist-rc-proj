@@ -366,7 +366,7 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
     file = fopen(file_path, "r+"); // fechar ficheiro nos returns
     if(!file || trial_num < 0 || trial_num > 8) {
         strcpy(response, "RTR NOK\n");
-        return;
+        return;   
     }
 
 
@@ -405,6 +405,8 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
     strcpy(code_copy, code);
     strcpy(try_copy, try);
     number_blacks_and_whites(code_copy, try_copy, num_b_w);
+
+    printf("%d %d\n", num_b_w[0], num_b_w[1]);
 
     if(trial_num != 8 || num_b_w[0] == 4){
         sprintf(response, "RTR OK %d %d %d\n", trial_num, num_b_w[0], num_b_w[1]);
