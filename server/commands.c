@@ -38,14 +38,10 @@ void generate_color_code(char c[4]){
 }
 
 
-void number_blacks_and_whites(char code[5], char try[4], int num_b_w[2]){
+void number_blacks_and_whites(char code[5], char try[5], int num_b_w[2]){
     int num_whites = 0;
     int num_blacks = 0;
 
-    for(int i = 0; i < 4; i++){
-        printf("%c\n", code[i]);
-        printf("%c\n", try[i]);
-    }
 
     int i, j;
     for(i = 0; i < 4; i++){
@@ -323,17 +319,21 @@ void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
     FILE *file;
     file = fopen(file_path, "r+");
     if(file){
-        int game_status = get_game_info(file, NULL, &secs);
-        if(game_status == -1) {
-            strcpy(response, "RSG ERR\n");
-            return;
-        }
-        else if(game_status == 0) {
-            sprintf(response, "RSG NOK\n");
-            return;
-        }
-        else if(game_status == 1) {
-            save_game(file, player_id, 'T', 0);
+        char buffer[1024];
+        fgets(buffer, sizeof buffer, file);
+        if(fgets(buffer, sizeof buffer, file) != NULL) {
+            
+            int game_status = get_game_info(file, NULL, &secs);
+            if(game_status == -1) {
+                strcpy(response, "RSG ERR\n");
+                return;
+            }
+            else if(game_status == 0) {
+                sprintf(response, "RSG NOK\n");
+                return;
+            }
+            else if(game_status == 1)
+                save_game(file, player_id, 'T', 0);
         }
     }
 
@@ -354,7 +354,7 @@ void cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
 }
 
 
-void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4]){
+void cmd_try(char *response, unsigned int player_id, int trial_num, char try[5]){
     char file_path[32];
     char code[5];
     char past_trial[5];
@@ -409,15 +409,9 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
     if(is_duplicated) return;
 
     char code_copy[5], try_copy[5];
-    strncpy(code_copy, code, 4);
-    strncpy(try_copy, try, 4);
-    code_copy[5] = '\0';
-    try_copy[5] = '\0';
+    strcpy(code_copy, code);
+    strcpy(try_copy, try);
 
-    for(int i = 0; i < 4; i++){
-        printf("%c\n", code_copy[i]);
-        printf("%c\n", try_copy[i]);
-    }
 
     number_blacks_and_whites(code_copy, try_copy, num_b_w);
 
@@ -532,7 +526,7 @@ void cmd_st(char *response, unsigned int player_id){
             if(form_data_size == 0)
                 strcpy(response, "RST ERR\n");
             else
-                sprintf(response, "RST ACT STATUS_%u.txt %ld %s", player_id, form_data_size, formatted_data);
+                sprintf(response, "RST ACT STATUS_%u.txt %ld %s\n", player_id, form_data_size, formatted_data);
 
             fclose(file);
             return;
@@ -553,7 +547,7 @@ void cmd_st(char *response, unsigned int player_id){
         if(form_data_size == 0)
             strcpy(response, "RST ERR\n");
         else
-            sprintf(response, "RST FIN STATUS_%u.txt %ld %s", player_id, form_data_size, formatted_data);
+            sprintf(response, "RST FIN STATUS_%u.txt %ld %s\n", player_id, form_data_size, formatted_data);
 
         fclose(file);
     }
@@ -594,9 +588,12 @@ void cmd_sb(char *response){
         strcat(file_data, "     (no more games)\n");
 
     get_current_time(NULL, date);
-    
+    // YYYY-MM-DD HH:MM:SS
     date[10] = '_';
-    sprintf(response, "RSS OK TOPSCORES_%s.txt %ld %s\n", date, strlen(file_data), file_data);
+    date[13] = '-';
+    date[16] = '-';
+    
+    sprintf(response, "RSS OK %s.txt %ld %s\n", date, strlen(file_data), file_data);
     
     return;
 }

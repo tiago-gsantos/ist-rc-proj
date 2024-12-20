@@ -50,7 +50,7 @@ int server_udp(int fd_udp, int verbose) {
     char buffer[256];
     char command[4]; 
     char response[256];
-    char c[4];
+    char c[5];
     char host[NI_MAXHOST], port[NI_MAXSERV];
     unsigned int time;
     unsigned int player_id;
@@ -349,22 +349,9 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
-                pid_t pid;
-                if((pid = fork()) == -1)
-                    exit(1); // error
-                else if (pid == 0) {
-                    close(fd_tcp);
-                    
-                    server_tcp(new_fd, verbose);
+                server_tcp(new_fd, verbose);
 
-                    close(new_fd);
-
-                    exit(0);
-                }
-
-                int ret;
-                do ret = close(new_fd);
-                while(ret == -1);
+                close(new_fd);
             }
             break;
         }

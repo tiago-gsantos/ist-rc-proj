@@ -45,17 +45,20 @@ int parse_start(char *buffer, unsigned int *id, unsigned int *time){
 
     if(*id > 999999 || *id < 100000 || *time > 600) 
         return 1;
+
     
     return 0;
 }
 
 
-int parse_try(char *buffer, int *trial_num, char c[4], unsigned int *id) {
+int parse_try(char *buffer, int *trial_num, char c[5], unsigned int *id) {
     char extra[2];
 
     if(sscanf(buffer, "%*s %u %c %c %c %c %d %1s", id, &c[0], &c[1], &c[2], &c[3], trial_num, extra) != 6 ||
         validate_string_spaces(buffer, 0) == 1)
         return 1;
+
+    c[4] = '\0';
     
     for(int i=0; i<4; i++) {
         if(strchr("RGBYOP", c[i]) == 0) 

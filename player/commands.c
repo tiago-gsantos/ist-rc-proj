@@ -152,7 +152,7 @@ int cmd_start(char *request, unsigned int *player_id, int *trial_num, int fd_udp
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
     }
     else if(strcmp(status, "OK") == 0){
-        *trial_num = 1;
+        //*trial_num = 1;
         printf("The game has started!\n");
     }
     else{

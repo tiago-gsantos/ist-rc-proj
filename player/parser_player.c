@@ -19,12 +19,12 @@ int parse_start(char *buffer, char *request, int trial_num, unsigned int *player
         return 1;
     }
 
-    *player_id = id;
-
     if(trial_num >= 1) {
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
         return 1;
     }
+
+    *player_id = id;
 
     sprintf(request, "SNG %u %u\n", id, time);
 
@@ -131,8 +131,6 @@ int parse_debug(char *buffer, char *request, int trial_num, unsigned int *player
         return 1;
     }
 
-    *player_id = id;
-
     for(int i=0; i<4; i++) {
         if(strchr("RGBYOP", c[i]) == 0) {
             fprintf(stderr, "Invalid arguments!\n");
@@ -144,6 +142,8 @@ int parse_debug(char *buffer, char *request, int trial_num, unsigned int *player
         fprintf(stderr, "Invalid command! Quit the current game first.\n");
         return 1;
     }
+    
+    *player_id = id;
 
     sprintf(request, "DBG %u %u %c %c %c %c\n", id, time, c[0], c[1], c[2], c[3]);
 
