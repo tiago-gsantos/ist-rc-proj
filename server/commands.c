@@ -375,13 +375,8 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
         return;   
     }
 
-
     int game_status = get_game_info(file, code, &trial_seconds);
-    
-    for(int i = 0; i < 4; i++){
-        printf("%c\n", code[i]);
-        printf("%c\n", try[i]);
-    }
+
 
     if(game_status == -1) {
         strcpy(response, "RTR ERR\n");
@@ -413,13 +408,11 @@ void cmd_try(char *response, unsigned int player_id, int trial_num, char try[4])
 
     if(is_duplicated) return;
 
-    for(int i = 0; i < 4; i++){
-        printf("%c\n", code[i]);
-    }
-
     char code_copy[5], try_copy[5];
-    strcpy(code_copy, code);
-    strcpy(try_copy, try);
+    strncpy(code_copy, code, 4);
+    strncpy(try_copy, try, 4);
+    code_copy[5] = '\0';
+    try_copy[5] = '\0';
 
     for(int i = 0; i < 4; i++){
         printf("%c\n", code_copy[i]);
