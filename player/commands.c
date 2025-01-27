@@ -491,5 +491,3 @@ int cmd_debug(char *request, unsigned int *player_id, int *trial_num, int fd_udp
 
     return 0;
 }
-
-

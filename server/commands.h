@@ -35,8 +35,8 @@ typedef struct {
 
 int cmd_start(char *response, unsigned int player_id, unsigned int time);
 int cmd_try(char *response, unsigned int player_id, int trial_num, char try[5]);
-int cmd_st(char *response, unsigned int player_id);
-int cmd_sb(char *response);
+void cmd_st(char *response, unsigned int player_id);
+void cmd_sb(char *response);
 int cmd_debug(char *response, unsigned int player_id, unsigned int game_time, char c[4]);
 int cmd_quit(char *response, unsigned int player_id);
 int create_file(char *f_name, char *f_data);

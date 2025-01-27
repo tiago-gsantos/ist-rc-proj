@@ -1,10 +1,24 @@
 #include "commands.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <time.h>
+#include <dirent.h>
+
+
 
 
 int create_file(char *f_name, char *f_data) {
     FILE *file = fopen(f_name, "w");
     if(file == NULL)
-        return 1; // error
+        return 1; // erro
 
     fprintf(file, "%s", f_data);
     fflush(file);
@@ -78,23 +92,23 @@ int get_game_info(FILE *file, char code[5], unsigned int *time_passed) {
     if(fgets(line, sizeof line, file) != NULL) { 
         if(code) {
             if(sscanf(line, "%*s %*c %s %u %*s %*s %u", code, &time_limit, &start_seconds) != 3)
-                return -1; // error
+                return -1; // erro
         } else {
             if(sscanf(line, "%*s %*c %*s %u %*s %*s %u", &time_limit, &start_seconds) != 2)
-                return -1; // error
+                return -1; // erro
         }
     } 
     else
-        return -1; // error
+        return -1; // erro
 
     get_current_time(&current_seconds, NULL);
 
     *time_passed = current_seconds - start_seconds;
 
     if(*time_passed >= time_limit)
-        return 1; // timeout
+        return 1;
 
-    return 0; // ongoing game
+    return 0;
 }
 
 
@@ -118,17 +132,17 @@ ssize_t format_data(FILE *file, char status[8], unsigned int player_id, char *fo
         if(number_trials == -1){
             if(sscanf(line, "%*s %c %s %u %s %s %u", 
             &mode, code, &time_limit, start_date, start_time, &start_seconds) != 6){
-                return 0;
+                return 0; // erro
             }
-            if(!status){
-                sprintf(line, "Active game found for player %u\n", player_id);
+            if(!status) {
+                sprintf(line, "   Active game found for player %u\n", player_id);
                 strcpy(formatted_data, line);
                 sprintf(line, "Game initiated: %s %s with %u seconds to be completed\n",
                 start_date, start_time, time_limit);
                 strcat(formatted_data, line);
             }
             else{
-                sprintf(line, "Last finalized game for player %u\n", player_id);
+                sprintf(line, "   Last finalized game for player %u\n", player_id);
                 strcpy(formatted_data, line);
                 sprintf(line, "Game initiated: %s %s with %u seconds to be completed\n",
                 start_date, start_time, time_limit);
@@ -145,13 +159,13 @@ ssize_t format_data(FILE *file, char status[8], unsigned int player_id, char *fo
             if(line[0] == 'T'){
                 if(sscanf(line, "%*s %s %d %d %u", trys.codes[number_trials], &trys.num_blacks[number_trials],
                 &trys.num_whites[number_trials], &trys.time[number_trials]) != 4){
-                    return 0;
+                    return 0; // erro
                 }
                 number_trials++;
             }
             else{
                 if(sscanf(line, "%s %s %u", end_date, end_time, &current_seconds) != 3){
-                    return 0;
+                    return 0; // erro
                 }
             }
         }
@@ -204,6 +218,7 @@ void get_game_status(char* file_path, char *status){
 }
 
 
+
 int save_game(FILE *file, unsigned int player_id, char status, unsigned int num_trials) {
     char date[11];
     char time[9];
@@ -217,10 +232,11 @@ int save_game(FILE *file, unsigned int player_id, char status, unsigned int num_
     char line[64];
     if(fgets(line, sizeof line, file) != NULL) { 
         if(sscanf(line, "%*s %c %s %u %4s-%2s-%s %2s:%2s:%s %u", &mode, code, &time_limit, date, date+4, date+6, time, time+2, time+4, &start_secs) != 10)
-            return 1; // error
+            return 1; // erro
     } else
-        return 1; // error
+        return 1; // erro
     
+
     char formatted_time[20];
     unsigned int current_secs;
     get_current_time(&current_secs, formatted_time);
@@ -248,13 +264,12 @@ int save_game(FILE *file, unsigned int player_id, char status, unsigned int num_
     char new_file_path[64];
     sprintf(new_file_path, "%s/%s_%s_%c.txt", dir_path, date, time, status);
 
-    if(rename(file_path, new_file_path) == -1)
-        return 1; // error
+    rename(file_path, new_file_path);
 
     if(status == 'W') {
         char day[3], month[3], year[5];
-        
-        sscanf(formatted_time, "%4s-%2s-%s %2s:%2s:%s", year, month, day, time, time+2, time+4);
+        if(sscanf(formatted_time, "%4s-%2s-%s %2s:%2s:%s", year, month, day, time, time+2, time+4) != 6)
+            return 1;
 
         sprintf(date, "%s%s%s", day, month, year);
 
@@ -307,12 +322,10 @@ int cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
 
     FILE *file;
     file = fopen(file_path, "r+");
-    if(file){ // ongoing game
-        char buffer[64];
+    if(file){
+        char buffer[1024];
         fgets(buffer, sizeof buffer, file);
-
-        if(fgets(buffer, sizeof buffer, file) != NULL) { // no tries
-        
+        if(fgets(buffer, sizeof buffer, file) != NULL) {
             int game_status = get_game_info(file, NULL, &secs);
             if(game_status == -1) {
                 fprintf(stderr, "Error accessing file\n");
@@ -326,7 +339,6 @@ int cmd_start(char *response, unsigned int player_id, unsigned int game_time) {
             }
             else if(game_status == 1) {
                 if(save_game(file, player_id, 'T', 0) == 1) {
-                    printf("ksbjfr");
                     fprintf(stderr, "Error saving file\n");
                     fclose(file);
                     return 1;
@@ -371,10 +383,11 @@ int cmd_try(char *response, unsigned int player_id, int trial_num, char try[5]){
     file = fopen(file_path, "r+");
     if(!file || trial_num < 0 || trial_num > 8) {
         strcpy(response, "RTR NOK\n");
-        return 0;
+        return 0;   
     }
 
     int game_status = get_game_info(file, code, &trial_seconds);
+
     if(game_status == -1) {
         fprintf(stderr, "Error accessing file\n");
         fclose(file);
@@ -393,7 +406,6 @@ int cmd_try(char *response, unsigned int player_id, int trial_num, char try[5]){
 
     while(fgets(line, sizeof line, file) != NULL){
         sscanf(line, "%*s %s", past_trial);
-
         server_trial_num++;
         if(strncmp(try, past_trial, 4) == 0){
             if(server_trial_num != trial_num){
@@ -406,7 +418,6 @@ int cmd_try(char *response, unsigned int player_id, int trial_num, char try[5]){
 
     if(trial_num != server_trial_num + 1){
         strcpy(response, "RTR INV\n");
-
         if(save_game(file, player_id, 'F', 0) == 1) {
             fprintf(stderr, "Error saving file\n");
             fclose(file);
@@ -416,10 +427,10 @@ int cmd_try(char *response, unsigned int player_id, int trial_num, char try[5]){
         return 0;
     }
 
-    if(is_duplicated) {
+    if(is_duplicated){
         fclose(file);
         return 0;
-    }
+    } 
 
     char code_copy[5], try_copy[5];
     strcpy(code_copy, code);
@@ -521,7 +532,7 @@ int find_top_scores(SCORELIST *list) {
 }
 
 
-int cmd_st(char *response, unsigned int player_id){
+void cmd_st(char *response, unsigned int player_id){
     char formatted_data[1024];
     char status[8];
     ssize_t form_data_size;
@@ -535,37 +546,28 @@ int cmd_st(char *response, unsigned int player_id){
         unsigned int secs;
         int game_status = get_game_info(file, NULL, &secs);
         if(game_status == -1) {
-            fprintf(stderr, "Error accessing file\n");
+            strcpy(response, "RST ERR\n");
             fclose(file);
-            return 0;
+            return;
         }
         else if(game_status == 0) {
             form_data_size = format_data(file, NULL, player_id, formatted_data);
-            
             if(form_data_size == 0)
                 strcpy(response, "RST ERR\n");
             else
                 sprintf(response, "RST ACT STATUS_%u.txt %ld %s\n", player_id, form_data_size, formatted_data);
 
             fclose(file);
-            return 0;
+            return;
         }
         else if(game_status == 1) {
-            if(save_game(file, player_id, 'T', 0) == 1) {
-                fprintf(stderr, "Error saving file\n");
-                fclose(file);
-                return 1;
-            }
+            save_game(file, player_id, 'T', 0);
             fclose(file);
         }
     }
     
     if(find_last_game(player_id, file_path) == 1){
         file = fopen(file_path, "r");
-        if(!file) {
-            fprintf(stderr, "Error opening file\n");
-            return 1;
-        }
 
         get_game_status(file_path, status);
         
@@ -581,11 +583,11 @@ int cmd_st(char *response, unsigned int player_id){
     else
         strcpy(response, "RST NOK\n");
 
-    return 0;
+    return;
 }
 
 
-int cmd_sb(char *response){
+void cmd_sb(char *response){
     char file_data[1024];
     char line[64];
     char date[20];
@@ -595,7 +597,7 @@ int cmd_sb(char *response){
     
     if(find_top_scores(&score_list) == 0) {
         strcpy(response, "RSS EMPTY\n");
-        return 0;
+        return;
     }
 
     strcpy(file_data, "---------------------- TOP 10 SCORES ----------------------\n\n");
@@ -622,7 +624,7 @@ int cmd_sb(char *response){
     
     sprintf(response, "RSS OK %s.txt %ld %s\n", date, strlen(file_data), file_data);
     
-    return 0;
+    return;
 }
 
 
@@ -651,8 +653,7 @@ int cmd_quit(char *response, unsigned int player_id){
                     fclose(file);
                     return 1;
                 }
-            } 
-            else {
+            } else {
                 fprintf(stderr, "Error accessing file\n");
                 fclose(file);
                 return 1;
@@ -693,12 +694,10 @@ int cmd_debug(char *response, unsigned int player_id, unsigned int game_time, ch
 
     FILE *file;
     file = fopen(file_path, "r+");
-    if(file){ // ongoing game
-        char buffer[64];
+    if(file){
+        char buffer[1024];
         fgets(buffer, sizeof buffer, file);
-
-        if(fgets(buffer, sizeof buffer, file) != NULL) { // no tries
-            
+        if(fgets(buffer, sizeof buffer, file) != NULL) {
             int game_status = get_game_info(file, NULL, &secs);
             if(game_status == -1) {
                 fprintf(stderr, "Error accessing file\n");
@@ -707,6 +706,7 @@ int cmd_debug(char *response, unsigned int player_id, unsigned int game_time, ch
             }
             else if(game_status == 0) {
                 sprintf(response, "RDB NOK\n");
+                fclose(file);
                 return 0;
             }
             else if(game_status == 1) {
@@ -717,6 +717,7 @@ int cmd_debug(char *response, unsigned int player_id, unsigned int game_time, ch
                 }
             }
         }
+        fclose(file);
     }
 
     get_current_time(&secs, formatted_time);
@@ -724,7 +725,7 @@ int cmd_debug(char *response, unsigned int player_id, unsigned int game_time, ch
     sprintf(file_data, "%u D %c%c%c%c %u %s %u\n", player_id, c[0], c[1], c[2], c[3], game_time, formatted_time, secs);
 
     if(create_file(file_path, file_data) != 0){
-        strcpy(response, "Error creating file\n");
+        fprintf(stderr, "Error creating file\n");
         return 1;
     }
 

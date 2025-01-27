@@ -149,6 +149,3 @@ int parse_debug(char *buffer, char *request, int trial_num, unsigned int *player
 
     return 0;
 }
-
-
-
